@@ -115,8 +115,8 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
             }
         }
 
-        public async Task<bool> SetSensorBattery(float battery) {
-            await udpClient.SendAsync(packetBuilder.BuildBatteryLevelPacket(battery));
+        public async Task<bool> SetSensorBattery(float battery, float voltage) {
+            await udpClient.SendAsync(packetBuilder.BuildBatteryLevelPacket(battery,voltage));
             return true;
         }
 

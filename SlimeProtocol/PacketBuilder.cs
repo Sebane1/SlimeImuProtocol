@@ -186,13 +186,13 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
             var data = buttonPushPacketStream.ToArray();
             return data;
         }
-        public byte[] BuildBatteryLevelPacket(float battery) {
+        public byte[] BuildBatteryLevelPacket(float battery, float voltage) {
             BigEndianBinaryWriter writer = _batteryLevelPacketWriter;
             batteryLevelPacketStream.Position = 0;
             writer.Write(UDPPackets.BATTERY_LEVEL); // Header
             writer.Write(_packetId++); // Packet counter
-            writer.Write(battery); // Battery data
-            writer.Write(battery); // Battery data
+            writer.Write(voltage); // Battery data
+            writer.Write(battery / 100); // Battery data
             batteryLevelPacketStream.Position = 0;
             var data = batteryLevelPacketStream.ToArray();
             return data;
