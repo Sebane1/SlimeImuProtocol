@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Net;
 using System.Net.Sockets;
 using System.Numerics;
 using System.Text;
@@ -6,6 +7,7 @@ using static Everything_To_IMU_SlimeVR.SlimeVR.FirmwareConstants;
 
 namespace Everything_To_IMU_SlimeVR.SlimeVR {
     public class UDPHandler {
+        private static string _endpoint = "localhost";
         private byte[] _hardwareAddress;
         private int _supportedSensorCount;
         private PacketBuilder packetBuilder;
@@ -15,12 +17,13 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
         bool _active = true;
 
         public bool Active { get => _active; set => _active = value; }
+        public static string Endpoint { get => _endpoint; set => _endpoint = value; }
 
         public UDPHandler(string firmware, byte[] hardwareAddress, BoardType boardType, ImuType imuType, McuType mcuType, int supportedSensorCount) {
             _hardwareAddress = hardwareAddress;
             _supportedSensorCount = supportedSensorCount;
             packetBuilder = new PacketBuilder(firmware);
-            ResetUdp();
+            ConfigureUdp();
             Task.Run(() => {
                 while (true) {
                     if (_active) {
@@ -41,14 +44,14 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
                 //}
             });
         }
-        public void ResetUdp() {
+        public void ConfigureUdp() {
             if (udpClient != null) {
                 udpClient?.Close();
                 udpClient?.Dispose();
             }
             packetBuilder.PacketId = 0;
             udpClient = new UdpClient();
-            udpClient.Connect("localhost", 6969);
+            udpClient.Connect(_endpoint, 6969);
         }
         public void Initialize(BoardType boardType, ImuType imuType, McuType mcuType, byte[] macAddress) {
             Handshake(boardType, imuType, mcuType, _hardwareAddress);
