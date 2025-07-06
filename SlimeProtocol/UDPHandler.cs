@@ -8,6 +8,7 @@ using static Everything_To_IMU_SlimeVR.SlimeVR.FirmwareConstants;
 namespace Everything_To_IMU_SlimeVR.SlimeVR {
     public class UDPHandler {
         private static string _endpoint = "localhost";
+        private static bool _handshakeOngoing = false;
         private byte[] _hardwareAddress;
         private int _supportedSensorCount;
         private PacketBuilder packetBuilder;
@@ -18,6 +19,7 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
 
         public bool Active { get => _active; set => _active = value; }
         public static string Endpoint { get => _endpoint; set => _endpoint = value; }
+        public static bool HandshakeOngoing { get => _handshakeOngoing; }
 
         public UDPHandler(string firmware, byte[] hardwareAddress, BoardType boardType, ImuType imuType, McuType mcuType, int supportedSensorCount) {
             _hardwareAddress = hardwareAddress;
@@ -25,23 +27,17 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
             packetBuilder = new PacketBuilder(firmware);
             ConfigureUdp();
             Task.Run(() => {
+                while (_handshakeOngoing) {
+                    Thread.Sleep(5000);
+                }
                 while (true) {
                     if (_active) {
                         Initialize(boardType, imuType, mcuType, hardwareAddress);
-                        Thread.Sleep(1000);
-                        handshakeCount += 1;
-                        if (handshakeCount > 10) {
-                            break;
-                        }
+                        break;
                     } else {
                         Thread.Sleep(5000);
                     }
                 }
-                //while (true) {
-                //    Thread.Sleep(1800000);
-                //    ResetUdp();
-                //    Initialize();
-                //}
             });
         }
         public void ConfigureUdp() {
@@ -54,7 +50,19 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
             udpClient.Connect(_endpoint, 6969);
         }
         public void Initialize(BoardType boardType, ImuType imuType, McuType mcuType, byte[] macAddress) {
-            Handshake(boardType, imuType, mcuType, _hardwareAddress);
+            bool listeningForHandShake = false;
+            _handshakeOngoing = true;
+            if (!listeningForHandShake) {
+                Task.Run(() => {
+                    bool listeningForHandShake = true;
+                    ListenForHandshake(boardType, imuType, mcuType, macAddress);
+                    listeningForHandShake = false;
+                });
+            }
+            while (_handshakeOngoing) {
+                Handshake(boardType, imuType, mcuType, _hardwareAddress);
+                Thread.Sleep(1000);
+            }
             for (int i = 0; i < _supportedSensorCount; i++) {
                 AddImu(imuType, TrackerPosition.NONE, TrackerDataType.ROTATION, (byte)i);
             }
@@ -106,12 +114,14 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
             return true;
         }
 
-        public async void ListenForHandshake() {
+        public async void ListenForHandshake(BoardType boardType, ImuType imuType, McuType mcuType, byte[] macAddress) {
             try {
                 var data = await udpClient.ReceiveAsync();
                 string value = Encoding.UTF8.GetString(data.Buffer);
                 if (value.Contains("Hey OVR =D 5")) {
-                    udpClient.Connect(data.RemoteEndPoint.Address.ToString(), 6969);
+                    //udpClient.Connect(data.RemoteEndPoint.Address.ToString(), 6969);
+                    _handshakeOngoing = false;
+                    Handshake(boardType, imuType, mcuType, _hardwareAddress);
                 }
             } catch {
 
@@ -119,7 +129,7 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
         }
 
         public async Task<bool> SetSensorBattery(float battery, float voltage) {
-            await udpClient.SendAsync(packetBuilder.BuildBatteryLevelPacket(battery,voltage));
+            await udpClient.SendAsync(packetBuilder.BuildBatteryLevelPacket(battery, voltage));
             return true;
         }
 
