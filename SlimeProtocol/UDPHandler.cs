@@ -7,7 +7,7 @@ using static Everything_To_IMU_SlimeVR.SlimeVR.FirmwareConstants;
 
 namespace Everything_To_IMU_SlimeVR.SlimeVR {
     public class UDPHandler {
-        private static string _endpoint = "localhost";
+        private static string _endpoint = "255.255.255.255";
         private static bool _handshakeOngoing = false;
         private byte[] _hardwareAddress;
         private int _supportedSensorCount;
@@ -119,7 +119,7 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
                 var data = await udpClient.ReceiveAsync();
                 string value = Encoding.UTF8.GetString(data.Buffer);
                 if (value.Contains("Hey OVR =D 5")) {
-                    //udpClient.Connect(data.RemoteEndPoint.Address.ToString(), 6969);
+                    udpClient.Connect(data.RemoteEndPoint.Address.ToString(), 6969);
                     _handshakeOngoing = false;
                     Handshake(boardType, imuType, mcuType, _hardwareAddress);
                 }
