@@ -9,6 +9,7 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
     public class UDPHandler {
         private static string _endpoint = "255.255.255.255";
         private static bool _handshakeOngoing = false;
+        public static event EventHandler OnForceHandshake;
         private byte[] _hardwareAddress;
         private int _supportedSensorCount;
         private PacketBuilder packetBuilder;
@@ -27,19 +28,30 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
             packetBuilder = new PacketBuilder(firmware);
             ConfigureUdp();
             Task.Run(() => {
-                while (_handshakeOngoing) {
+                DoHandshake(hardwareAddress, boardType, imuType, mcuType, supportedSensorCount);
+            });
+
+            OnForceHandshake += delegate {
+                DoHandshake(hardwareAddress, boardType, imuType, mcuType, supportedSensorCount);
+            };
+        }
+        public static void ForceUDPClientsToDoHandshake() {
+            OnForceHandshake?.Invoke(new object(), EventArgs.Empty);
+        }
+        public void DoHandshake(byte[] hardwareAddress, BoardType boardType, ImuType imuType, McuType mcuType, int supportedSensorCount) {
+            while (_handshakeOngoing) {
+                Thread.Sleep(5000);
+            }
+            while (true) {
+                if (_active) {
+                    Initialize(boardType, imuType, mcuType, hardwareAddress);
+                    break;
+                } else {
                     Thread.Sleep(5000);
                 }
-                while (true) {
-                    if (_active) {
-                        Initialize(boardType, imuType, mcuType, hardwareAddress);
-                        break;
-                    } else {
-                        Thread.Sleep(5000);
-                    }
-                }
-            });
+            }
         }
+
         public void ConfigureUdp() {
             if (udpClient != null) {
                 udpClient?.Close();
@@ -49,6 +61,7 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
             udpClient = new UdpClient();
             udpClient.Connect(_endpoint, 6969);
         }
+
         public void Initialize(BoardType boardType, ImuType imuType, McuType mcuType, byte[] macAddress) {
             bool listeningForHandShake = false;
             _handshakeOngoing = true;
