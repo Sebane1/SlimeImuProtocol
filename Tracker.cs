@@ -3,7 +3,7 @@ using System.Numerics;
 using System.Text;
 using static SlimeImuProtocol.SlimeVR.FirmwareConstants;
 
-namespace SlimeImuProtocol { 
+namespace SlimeImuProtocol {
     public class Tracker {
         public int TrackerNum { get; set; }
         public string Name { get; set; }
@@ -61,7 +61,7 @@ namespace SlimeImuProtocol {
                 while (device.FirmwareVersion == null) {
                     Thread.Sleep(1000);
                 }
-                _udpHandler = new UDPHandler(device.FirmwareVersion + "_EsbToLan", Encoding.UTF8.GetBytes(device.HardwareIdentifier), device.BoardType, ImuType, device.McuType, 1);
+                _udpHandler = new UDPHandler(device.FirmwareVersion + "_EsbToLan", Encoding.UTF8.GetBytes(device.HardwareIdentifier), device.BoardType, ImuType, device.McuType, magStatus, 1);
                 _ready = true;
             });
         }
@@ -74,6 +74,7 @@ namespace SlimeImuProtocol {
                     BoardType,
                     ImuType,
                     McuType,
+                    MagStatus,
                     1
                 );
                 _ready = true;

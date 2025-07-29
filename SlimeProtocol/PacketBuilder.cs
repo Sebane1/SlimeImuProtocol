@@ -88,8 +88,8 @@ namespace SlimeImuProtocol.SlimeVR {
             writer.Write((int)imuType); //IMU type
             writer.Write((int)mcuType); // MCU Type
 
-            writer.Write((int)0); // IMU Info
-            writer.Write((int)0); // IMU Info
+            writer.Write((int)magnetometerStatus); // IMU Info
+            writer.Write((int)magnetometerStatus); // IMU Info
             writer.Write((int)magnetometerStatus); // IMU Info
 
             writer.Write(_protocolVersion); // Protocol Version

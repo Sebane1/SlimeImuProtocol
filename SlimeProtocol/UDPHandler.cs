@@ -22,29 +22,29 @@ namespace SlimeImuProtocol.SlimeVR {
         public static string Endpoint { get => _endpoint; set => _endpoint = value; }
         public static bool HandshakeOngoing { get => _handshakeOngoing; }
 
-        public UDPHandler(string firmware, byte[] hardwareAddress, BoardType boardType, ImuType imuType, McuType mcuType, int supportedSensorCount) {
+        public UDPHandler(string firmware, byte[] hardwareAddress, BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magnetometerStatus, int supportedSensorCount) {
             _hardwareAddress = hardwareAddress;
             _supportedSensorCount = supportedSensorCount;
             packetBuilder = new PacketBuilder(firmware);
             ConfigureUdp();
             Task.Run(() => {
-                DoHandshake(hardwareAddress, boardType, imuType, mcuType, supportedSensorCount);
+                DoHandshake(hardwareAddress, boardType, imuType, mcuType, magnetometerStatus, supportedSensorCount);
             });
 
             OnForceHandshake += delegate {
-                DoHandshake(hardwareAddress, boardType, imuType, mcuType, supportedSensorCount);
+                DoHandshake(hardwareAddress, boardType, imuType, mcuType, magnetometerStatus, supportedSensorCount);
             };
         }
         public static void ForceUDPClientsToDoHandshake() {
             OnForceHandshake?.Invoke(new object(), EventArgs.Empty);
         }
-        public void DoHandshake(byte[] hardwareAddress, BoardType boardType, ImuType imuType, McuType mcuType, int supportedSensorCount) {
+        public void DoHandshake(byte[] hardwareAddress, BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magnetometerStatus, int supportedSensorCount) {
             while (_handshakeOngoing) {
                 Thread.Sleep(5000);
             }
             while (true) {
                 if (_active) {
-                    Initialize(boardType, imuType, mcuType, hardwareAddress);
+                    Initialize(boardType, imuType, mcuType, magnetometerStatus, hardwareAddress);
                     break;
                 } else {
                     Thread.Sleep(5000);
@@ -62,18 +62,18 @@ namespace SlimeImuProtocol.SlimeVR {
             udpClient.Connect(_endpoint, 6969);
         }
 
-        public void Initialize(BoardType boardType, ImuType imuType, McuType mcuType, byte[] macAddress) {
+        public void Initialize(BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magnetometerStatus, byte[] macAddress) {
             bool listeningForHandShake = false;
             _handshakeOngoing = true;
             if (!listeningForHandShake) {
                 Task.Run(() => {
                     bool listeningForHandShake = true;
-                    ListenForHandshake(boardType, imuType, mcuType, macAddress);
+                    ListenForHandshake(boardType, imuType, mcuType, magnetometerStatus, macAddress);
                     listeningForHandShake = false;
                 });
             }
             while (_handshakeOngoing) {
-                Handshake(boardType, imuType, mcuType, _hardwareAddress);
+                Handshake(boardType, imuType, mcuType, magnetometerStatus, _hardwareAddress);
                 Thread.Sleep(1000);
             }
             for (int i = 0; i < _supportedSensorCount; i++) {
@@ -95,8 +95,8 @@ namespace SlimeImuProtocol.SlimeVR {
             await udpClient.SendAsync(packetBuilder.BuildSensorInfoPacket(imuType, trackerPosition, trackerDataType, trackerId));
         }
 
-        public async void Handshake(BoardType boardType, ImuType imuType, McuType mcuType, byte[] macAddress) {
-            await udpClient.SendAsync(packetBuilder.BuildHandshakePacket(boardType, imuType, mcuType, macAddress));
+        public async void Handshake(BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magnetometerStatus, byte[] macAddress) {
+            await udpClient.SendAsync(packetBuilder.BuildHandshakePacket(boardType, imuType, mcuType, magnetometerStatus, macAddress));
             await Task.Delay(500);
             Heartbeat();
         }
@@ -127,14 +127,14 @@ namespace SlimeImuProtocol.SlimeVR {
             return true;
         }
 
-        public async void ListenForHandshake(BoardType boardType, ImuType imuType, McuType mcuType, byte[] macAddress) {
+        public async void ListenForHandshake(BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magnetometerStatus, byte[] macAddress) {
             try {
                 var data = await udpClient.ReceiveAsync();
                 string value = Encoding.UTF8.GetString(data.Buffer);
                 if (value.Contains("Hey OVR =D 5")) {
                     udpClient.Connect(data.RemoteEndPoint.Address.ToString(), 6969);
                     _handshakeOngoing = false;
-                    Handshake(boardType, imuType, mcuType, _hardwareAddress);
+                    Handshake(boardType, imuType, mcuType, magnetometerStatus, _hardwareAddress);
                 }
             } catch {
 
