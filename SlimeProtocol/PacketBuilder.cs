@@ -5,11 +5,11 @@ using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
-using static Everything_To_IMU_SlimeVR.SlimeVR.FirmwareConstants;
+using static SlimeImuProtocol.SlimeVR.FirmwareConstants;
 using static System.Runtime.InteropServices.JavaScript.JSType;
-using static Everything_To_IMU_SlimeVR.Utility.BigEndianExtensions;
-using Everything_To_IMU_SlimeVR.Utility;
-namespace Everything_To_IMU_SlimeVR.SlimeVR {
+using static SlimeImuProtocol.Utility.BigEndianExtensions;
+using SlimeImuProtocol.Utility;
+namespace SlimeImuProtocol.SlimeVR {
     public class PacketBuilder {
         private string _identifierString = "Dualsense-IMU-Tracker";
         private int _protocolVersion = 19;
@@ -79,7 +79,7 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
             return data;
         }
 
-        public byte[] BuildHandshakePacket(BoardType boardType, ImuType imuType, McuType mcuType, byte[] macAddress) {
+        public byte[] BuildHandshakePacket(BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magnetometerStatus, byte[] macAddress) {
             BigEndianBinaryWriter writer = _handshakeWriter;
             handshakeStream.Position = 0;
             writer.Write(UDPPackets.HANDSHAKE); // header
@@ -90,7 +90,7 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
 
             writer.Write((int)0); // IMU Info
             writer.Write((int)0); // IMU Info
-            writer.Write((int)0); // IMU Info
+            writer.Write((int)magnetometerStatus); // IMU Info
 
             writer.Write(_protocolVersion); // Protocol Version
             byte[] utf8Bytes = Encoding.UTF8.GetBytes(_identifierString);

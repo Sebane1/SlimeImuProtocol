@@ -3,9 +3,9 @@ using System.Net;
 using System.Net.Sockets;
 using System.Numerics;
 using System.Text;
-using static Everything_To_IMU_SlimeVR.SlimeVR.FirmwareConstants;
+using static SlimeImuProtocol.SlimeVR.FirmwareConstants;
 
-namespace Everything_To_IMU_SlimeVR.SlimeVR {
+namespace SlimeImuProtocol.SlimeVR {
     public class UDPHandler {
         private static string _endpoint = "255.255.255.255";
         private static bool _handshakeOngoing = false;

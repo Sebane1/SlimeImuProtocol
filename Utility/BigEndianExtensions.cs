@@ -1,4 +1,4 @@
-﻿namespace Everything_To_IMU_SlimeVR.Utility {
+﻿namespace SlimeImuProtocol.Utility {
     public static class BigEndianExtensions {
         static bool _skipCorrection = false;
 
