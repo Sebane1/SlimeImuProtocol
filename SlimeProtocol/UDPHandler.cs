@@ -6,10 +6,11 @@ using System.Text;
 using static SlimeImuProtocol.SlimeVR.FirmwareConstants;
 
 namespace SlimeImuProtocol.SlimeVR {
-    public class UDPHandler {
+    public class UDPHandler : IDisposable {
         private static string _endpoint = "255.255.255.255";
         private static bool _handshakeOngoing = false;
         public static event EventHandler OnForceHandshake;
+        public static event EventHandler OnForceDestroy;
         private byte[] _hardwareAddress;
         private int _supportedSensorCount;
         private PacketBuilder packetBuilder;
@@ -17,6 +18,8 @@ namespace SlimeImuProtocol.SlimeVR {
         UdpClient udpClient;
         int handshakeCount = 1000;
         bool _active = true;
+        private bool disposed;
+        private EventHandler delegate1;
 
         public bool Active { get => _active; set => _active = value; }
         public static string Endpoint { get => _endpoint; set => _endpoint = value; }
@@ -31,23 +34,39 @@ namespace SlimeImuProtocol.SlimeVR {
                 DoHandshake(hardwareAddress, boardType, imuType, mcuType, magnetometerStatus, supportedSensorCount);
             });
 
-            OnForceHandshake += delegate {
+            delegate1 = delegate(object o, EventArgs e) {
                 DoHandshake(hardwareAddress, boardType, imuType, mcuType, magnetometerStatus, supportedSensorCount);
             };
+            OnForceHandshake += delegate1;
+            OnForceDestroy += UDPHandler_OnForceDestroy;
         }
+
+        private void UDPHandler_OnForceDestroy(object? sender, EventArgs e) {
+            OnForceHandshake -= delegate1;
+            OnForceDestroy -= UDPHandler_OnForceDestroy;
+            this?.Dispose();
+        }
+
         public static void ForceUDPClientsToDoHandshake() {
             OnForceHandshake?.Invoke(new object(), EventArgs.Empty);
         }
-        public void DoHandshake(byte[] hardwareAddress, BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magnetometerStatus, int supportedSensorCount) {
-            while (_handshakeOngoing) {
-                Thread.Sleep(5000);
-            }
-            while (true) {
-                if (_active) {
-                    Initialize(boardType, imuType, mcuType, magnetometerStatus, hardwareAddress);
-                    break;
-                } else {
+        public static void ForceDestroy() {
+            OnForceHandshake -= OnForceHandshake;
+            OnForceDestroy?.Invoke(new object(), EventArgs.Empty);
+        }
+        public void DoHandshake(byte[] hardwareAddress, BoardType boardType, ImuType imuType, McuType mcuType, 
+            MagnetometerStatus magnetometerStatus, int supportedSensorCount) {
+            if (!disposed) {
+                while (_handshakeOngoing) {
                     Thread.Sleep(5000);
+                }
+                while (true) {
+                    if (_active) {
+                        Initialize(boardType, imuType, mcuType, magnetometerStatus, hardwareAddress);
+                        break;
+                    } else {
+                        Thread.Sleep(5000);
+                    }
                 }
             }
         }
@@ -84,7 +103,9 @@ namespace SlimeImuProtocol.SlimeVR {
             Task.Run(async () => {
                 while (true) {
                     if (_active) {
-                        await udpClient.SendAsync(packetBuilder.HeartBeat);
+                        if (udpClient != null) {
+                            await udpClient.SendAsync(packetBuilder.HeartBeat);
+                        }
                     }
                     await Task.Delay(900); // At least 1 time per second (<1000ms)
                 }
@@ -92,38 +113,54 @@ namespace SlimeImuProtocol.SlimeVR {
         }
 
         public async void AddImu(ImuType imuType, TrackerPosition trackerPosition, TrackerDataType trackerDataType, byte trackerId) {
-            await udpClient.SendAsync(packetBuilder.BuildSensorInfoPacket(imuType, trackerPosition, trackerDataType, trackerId));
+            if (udpClient != null) {
+                await udpClient.SendAsync(packetBuilder.BuildSensorInfoPacket(imuType, trackerPosition, trackerDataType, trackerId));
+            }
         }
 
         public async void Handshake(BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magnetometerStatus, byte[] macAddress) {
-            await udpClient.SendAsync(packetBuilder.BuildHandshakePacket(boardType, imuType, mcuType, magnetometerStatus, macAddress));
+            if (udpClient != null) {
+                await udpClient.SendAsync(packetBuilder.BuildHandshakePacket(boardType, imuType, mcuType, magnetometerStatus, macAddress));
+            }
             await Task.Delay(500);
             Heartbeat();
         }
 
         public async Task<bool> SetSensorRotation(Quaternion rotation, byte trackerId) {
-            await udpClient.SendAsync(packetBuilder.BuildRotationPacket(rotation, trackerId));
+            if (udpClient != null) {
+                await udpClient.SendAsync(packetBuilder.BuildRotationPacket(rotation, trackerId));
+            }
             return true;
         }
         public async Task<bool> SetSensorAcceleration(Vector3 acceleration, byte trackerId) {
-            await udpClient.SendAsync(packetBuilder.BuildAccelerationPacket(acceleration, trackerId));
+            if (udpClient != null) {
+                await udpClient.SendAsync(packetBuilder.BuildAccelerationPacket(acceleration, trackerId));
+            }
             return true;
         }
         public async Task<bool> SetSensorGyro(Vector3 gyro, byte trackerId) {
-            await udpClient.SendAsync(packetBuilder.BuildGyroPacket(gyro, trackerId));
+            if (udpClient != null) {
+                await udpClient.SendAsync(packetBuilder.BuildGyroPacket(gyro, trackerId));
+            }
             return true;
         }
         public async Task<bool> SetSensorFlexData(float flexResistance, byte trackerId) {
-            await udpClient.SendAsync(packetBuilder.BuildFlexDataPacket(flexResistance, trackerId));
+            if (udpClient != null) {
+                await udpClient.SendAsync(packetBuilder.BuildFlexDataPacket(flexResistance, trackerId));
+            }
             return true;
         }
         public async Task<bool> SendButton(UserActionType userActionType) {
-            await udpClient.SendAsync(packetBuilder.BuildButtonPushedPacket(userActionType));
+            if (udpClient != null) {
+                await udpClient.SendAsync(packetBuilder.BuildButtonPushedPacket(userActionType));
+            }
             return true;
         }
 
         public async Task<bool> SendPacket(byte[] packet) {
-            await udpClient.SendAsync(packet);
+            if (udpClient != null) {
+                await udpClient.SendAsync(packet);
+            }
             return true;
         }
 
@@ -142,13 +179,31 @@ namespace SlimeImuProtocol.SlimeVR {
         }
 
         public async Task<bool> SetSensorBattery(float battery, float voltage) {
-            await udpClient.SendAsync(packetBuilder.BuildBatteryLevelPacket(battery, voltage));
+            if (udpClient != null) {
+                await udpClient.SendAsync(packetBuilder.BuildBatteryLevelPacket(battery, voltage));
+            }
             return true;
         }
 
         public async Task<bool> SetSensorMagnetometer(Vector3 magnetometer, int trackerId) {
-            await udpClient.SendAsync(packetBuilder.BuildMagnetometerPacket(magnetometer, trackerId));
+            if (udpClient != null) {
+                await udpClient.SendAsync(packetBuilder.BuildMagnetometerPacket(magnetometer, trackerId));
+            }
             return true;
+        }
+
+        public void Dispose() {
+            try {
+                if (udpClient != null) {
+                    if (!disposed) {
+                        disposed = true;
+                        udpClient?.Close();
+                        udpClient = null;
+                    }
+                }
+            } catch {
+
+            }
         }
     }
 }

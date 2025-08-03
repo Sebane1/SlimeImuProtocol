@@ -11,7 +11,9 @@ public class TrackerDevice {
 
     public BoardType BoardType { get; set; }
     public McuType McuType { get; set; }
+    public MagnetometerStatus MagnetometerStatus { get; set; }
     public string FirmwareVersion { get; set; }
+
     public Tracker? GetTracker(int id) {
         if (Trackers.TryGetValue(id, out var tracker)) {
             return tracker;

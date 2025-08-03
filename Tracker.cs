@@ -4,7 +4,7 @@ using System.Text;
 using static SlimeImuProtocol.SlimeVR.FirmwareConstants;
 
 namespace SlimeImuProtocol {
-    public class Tracker {
+    public class Tracker : IDisposable {
         public int TrackerNum { get; set; }
         public string Name { get; set; }
         public string DisplayName { get; set; }
@@ -61,7 +61,8 @@ namespace SlimeImuProtocol {
                 while (device.FirmwareVersion == null) {
                     Thread.Sleep(1000);
                 }
-                _udpHandler = new UDPHandler(device.FirmwareVersion + "_EsbToLan", Encoding.UTF8.GetBytes(device.HardwareIdentifier), device.BoardType, ImuType, device.McuType, magStatus, 1);
+                _udpHandler = new UDPHandler(device.FirmwareVersion + "_EsbToLan", 
+                 Encoding.UTF8.GetBytes(device.HardwareIdentifier), device.BoardType, ImuType, device.McuType, MagStatus, 1);
                 _ready = true;
             });
         }
@@ -83,21 +84,26 @@ namespace SlimeImuProtocol {
 
         public void SetRotation(Quaternion q) {
             if (_ready)
-                _udpHandler.SetSensorRotation(q, 0);
+                _udpHandler?.SetSensorRotation(q, 0);
         }
 
         public void SetAcceleration(Vector3 a) {
             if (_ready)
-                _udpHandler.SetSensorAcceleration(a, 0);
+                _udpHandler?.SetSensorAcceleration(a, 0);
         }
 
         public void SetMagVector(Vector3 m) {
             if (_ready)
-                _udpHandler.SetSensorMagnetometer(m, 0);
+                _udpHandler?.SetSensorMagnetometer(m, 0);
         }
 
         public async Task DataTick() {
             // Optional: add update logic if needed.
+        }
+
+        public void Dispose() {
+             _ready = false;
+             _udpHandler?.Dispose();
         }
     }
 

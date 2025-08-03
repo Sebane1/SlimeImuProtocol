@@ -201,7 +201,7 @@ namespace SlimeImuProtocol.SlimeVR {
         public byte[] BuildMagnetometerPacket(Vector3 magnetometer, int trackerId) {
             BigEndianBinaryWriter writer = _magnetometerPacketWriter;
             magnetometerPacketStream.Position = 0;
-            writer.Write(UDPPackets.RAW_MAGENTOMETER); // Header
+            writer.Write(UDPPackets.MAG); // Header
             writer.Write(_packetId++); // Packet counter
             writer.Write((byte)trackerId); // Tracker id
             writer.Write((byte)1); // Data type 
