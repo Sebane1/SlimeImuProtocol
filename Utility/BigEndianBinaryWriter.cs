@@ -1,4 +1,4 @@
-﻿namespace Everything_To_IMU_SlimeVR.Utility {
+﻿namespace SlimeImuProtocol.Utility {
     public class BigEndianBinaryWriter : BinaryWriter {
         public BigEndianBinaryWriter(Stream stream) : base(stream) { }
         public override void Write(float value) {

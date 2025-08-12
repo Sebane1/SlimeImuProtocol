@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Everything_To_IMU_SlimeVR.SlimeVR {
+namespace SlimeImuProtocol.SlimeVR {
     public static class FirmwareConstants {
 
         public enum BoardType {
