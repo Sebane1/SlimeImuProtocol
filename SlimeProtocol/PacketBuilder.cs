@@ -26,6 +26,7 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
         private MemoryStream buttonPushPacketStream;
         private MemoryStream batteryLevelPacketStream;
         private MemoryStream magnetometerPacketStream;
+        private MemoryStream hapticPacketStream;
         private BigEndianBinaryWriter _handshakeWriter;
         private BigEndianBinaryWriter _sensorInfoWriter;
         private BigEndianBinaryWriter _sensorRotationPacketWriter;
@@ -36,6 +37,7 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
         private BigEndianBinaryWriter _buttonPushPacketWriter;
         private BigEndianBinaryWriter _batteryLevelPacketWriter;
         private BigEndianBinaryWriter _magnetometerPacketWriter;
+        private BigEndianBinaryWriter _hapticPacketWriter;
 
         public byte[] HeartBeat { get => _heartBeat; set => _heartBeat = value; }
         public long PacketId { get => _packetId; set => _packetId = value; }
@@ -52,6 +54,7 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
             buttonPushPacketStream = new MemoryStream();
             batteryLevelPacketStream = new MemoryStream();
             magnetometerPacketStream = new MemoryStream();
+            hapticPacketStream = new MemoryStream();
 
 
             _handshakeWriter = new BigEndianBinaryWriter(handshakeStream);
@@ -63,6 +66,7 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
             _buttonPushPacketWriter = new BigEndianBinaryWriter(buttonPushPacketStream);
             _batteryLevelPacketWriter = new BigEndianBinaryWriter(batteryLevelPacketStream);
             _magnetometerPacketWriter = new BigEndianBinaryWriter(magnetometerPacketStream);
+            _hapticPacketWriter = new BigEndianBinaryWriter(hapticPacketStream);
 
             _heartBeat = CreateHeartBeat();
         }
@@ -211,6 +215,18 @@ namespace Everything_To_IMU_SlimeVR.SlimeVR {
             writer.Write((byte)0); // Calibration Info
             magnetometerPacketStream.Position = 0;
             var data = magnetometerPacketStream.ToArray();
+            return data;
+        }
+        public byte[] BuildHapticPacket(float intensity, int duration) {
+            BigEndianBinaryWriter writer = _hapticPacketWriter;
+            hapticPacketStream.Position = 0;
+            writer.Write(new byte[3]); // Padding
+            writer.Write((byte)UDPPackets.HAPTICS); // Header
+            writer.Write(intensity); // Vibration Intensity
+            writer.Write(duration); // Haptic Duration
+            writer.Write(true); // Haptics active
+            hapticPacketStream.Position = 0;
+            var data = hapticPacketStream.ToArray();
             return data;
         }
     }
