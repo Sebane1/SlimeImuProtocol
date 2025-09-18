@@ -9,7 +9,8 @@ namespace Everything_To_IMU_SlimeVR.Tracking
             double degrees = 180 / Math.PI * radians;
             return (float)degrees;
         }
-        public static Vector3 ConvertRadiansToDegrees(this Vector3 radians) {
+        public static Vector3 ConvertRadiansToDegrees(this Vector3 radians)
+        {
             Vector3 degrees = (float)(180 / Math.PI) * radians;
             return degrees;
         }
@@ -91,8 +92,7 @@ namespace Everything_To_IMU_SlimeVR.Tracking
             if (Math.Abs(sinp) >= 1)
             {
                 angles.Y = (float)Math.CopySign(Math.PI / 2, sinp);
-            }
-            else
+            } else
             {
                 angles.Y = (float)Math.Asin(sinp);
             }
@@ -147,7 +147,8 @@ namespace Everything_To_IMU_SlimeVR.Tracking
 
             return yaw.ConvertRadiansToDegrees();
         }
-        public static float GetXAxisFromQuaternion(this Quaternion q) {
+        public static float GetXAxisFromQuaternion(this Quaternion q)
+        {
             float w = q.W;
             float x = q.X;
             float y = q.Y;
@@ -161,7 +162,7 @@ namespace Everything_To_IMU_SlimeVR.Tracking
 
             return pitchInDegrees;
         }
-        public static Vector3 Transform(ref Vector3 v, ref Quaternion rotation)
+        public static Vector3 Transform(Vector3 v, Quaternion rotation)
         {
             // This operation is an optimized-down version of v' = q * v * q^-1.
             // The expanded form would be to treat v as an 'axis only' quaternion
@@ -193,7 +194,7 @@ namespace Everything_To_IMU_SlimeVR.Tracking
             // Convert gyro data from the gyroscope's frame of reference to the world frame of reference.
 
             // Rotate gyroData by orientation quaternion.
-            Vector3 gyroWorldData = Transform(ref gyroData, ref orientation);
+            Vector3 gyroWorldData = Transform(gyroData, orientation);
 
             // Check which direction the armband is facing.
             Vector3 forwardSource = new Vector3(1, 0, 0);
@@ -222,8 +223,7 @@ namespace Everything_To_IMU_SlimeVR.Tracking
             {
                 // Vectors are opposite, cannot rotate smoothly.
                 return Quaternion.Identity;
-            }
-            else if (dot > 1 - float.Epsilon)
+            } else if (dot > 1 - float.Epsilon)
             {
                 // Vectors are identical, no rotation needed.
                 return Quaternion.Identity;
@@ -234,7 +234,8 @@ namespace Everything_To_IMU_SlimeVR.Tracking
             return Quaternion.CreateFromAxisAngle(axis, angle);
         }
 
-        public static Vector3 AngleToForward(this float angle) {
+        public static Vector3 AngleToForward(this float angle)
+        {
             return new Vector3((float)Math.Cos(angle), 0, (float)Math.Sin(angle));
         }
 
