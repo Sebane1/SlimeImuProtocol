@@ -33,6 +33,8 @@ namespace ImuToXInput
         public string BodyPart { get; set; }
         public string Ip { get; set; }
 
+        public string Firmware { get; set; }
+
         public Quaternion Rotation
         {
             get
