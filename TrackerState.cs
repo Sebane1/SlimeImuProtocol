@@ -8,6 +8,16 @@ using System.Threading.Tasks;
 
 namespace ImuToXInput
 {
+    public static class TrackingEnvironment
+    {
+        // Always measured in world-space Y
+        public static float FloorY { get; set; } = 0.0f;
+        public static void UpdateFloor(params TrackerState[] trackers)
+        {
+            if (trackers == null || trackers.Length == 0) return;
+            FloorY = trackers.Min(t => t.CalibratedPosition.Y);
+        }
+    }
     public class TrackerState
     {
         private Vector3 _position;
@@ -37,11 +47,17 @@ namespace ImuToXInput
         }
 
         public Vector3 CalibratedPosition { get { return _position - _positionCalibration; } }
+
+        public Vector3 FloorRelativePosition
+        {
+            get { return new Vector3(CalibratedPosition.X, CalibratedPosition.Y - TrackingEnvironment.FloorY, CalibratedPosition.Z); }
+        }
+
         public bool CloseToCalibratedY
         {
             get
-            {  return CalibratedPosition.Y < 0.060f;
-                return true;
+            {
+                return FloorRelativePosition.Y < 0.030f;
             }
         }
         public Vector3 SmoothRotation { get; set; }
