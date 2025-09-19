@@ -40,7 +40,7 @@ public class SlimeVRClient
 
     private readonly CancellationTokenSource cancellationTokenSource = new();
     private ClientWebSocket client;
-
+    public EventHandler NewDataReceived;
     public void Start()
     {
         Task.Run(async () => await RunNetworking(cancellationTokenSource.Token));
@@ -231,6 +231,7 @@ public class SlimeVRClient
 
             // Map BodyPart -> IP (from devices)
             var bodyPartIpMap = new Dictionary<string, string>();
+            var firmwareMap = new Dictionary<string, string>();
             for (var d = 0; d < update.DevicesLength; ++d)
             {
                 var device = update.Devices(d);
@@ -238,13 +239,14 @@ public class SlimeVRClient
 
                 var hwInfo = device.Value.HardwareInfo;
                 string ip = "";
-
+                string firmware = "";
                 if (hwInfo.HasValue)
                 {
                     if (hwInfo.Value.IpAddress != null)
                     {
                         ip = Ipv4ToString(hwInfo.Value.IpAddress.Value.Addr);
                     }
+                    firmware = hwInfo.Value.FirmwareVersion;
                 }
 
                 // Assign IP to all tracked bones for this device
@@ -256,6 +258,7 @@ public class SlimeVRClient
                         if (!tracker.HasValue) continue;
                         var bodyPart = tracker.Value.Info.Value.BodyPart.ToString();
                         bodyPartIpMap[bodyPart] = ip;
+                        firmwareMap[bodyPart] = firmware;
                     }
                 }
             }
@@ -270,14 +273,16 @@ public class SlimeVRClient
                 if (!bone.RotationG.HasValue) continue;
 
                 string ip = bodyPartIpMap.TryGetValue(bone.BodyPart.ToString(), out var mappedIp) ? mappedIp : "";
+                string firmware = firmwareMap.TryGetValue(bone.BodyPart.ToString(), out var mappedFirmware) ? mappedFirmware : "";
 
                 var headPosition = RHSToLHSVector3(bone.HeadPositionG.Value);
                 var headRotation = RHSToLHSQuaternion(bone.RotationG.Value)
                     * Quaternion.CreateFromAxisAngle(new Vector3(1, 0, 0), -90.0f);
 
-                HandleSolarXRMessage(bone.BodyPart.ToString(), ip, headPosition, headRotation);
+                HandleSolarXRMessage(bone.BodyPart.ToString(), firmware, ip, headPosition, headRotation);
             }
         }
+        NewDataReceived?.Invoke(this, EventArgs.Empty);
     }
 
 
@@ -291,7 +296,7 @@ public class SlimeVRClient
     }
 
 
-    void HandleSolarXRMessage(string bodyPart, string ipAddress, Vector3 position, Quaternion rotation)
+    void HandleSolarXRMessage(string bodyPart, string firmware, string ipAddress, Vector3 position, Quaternion rotation)
     {
         try
         {
@@ -319,6 +324,7 @@ public class SlimeVRClient
                 EulerCalibration = eulerCalibration,
                 BodyPart = bodyPart,
                 Ip = ipAddress,
+                Firmware = firmware,
                 Rotation = localRotation,
                 WorldRotation = worldRotation
             };
