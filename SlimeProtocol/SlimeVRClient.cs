@@ -137,7 +137,7 @@ public class SlimeVRClient
 
                     case WebSocketMessageType.Text:
                         //Console.WriteLine($"Received text message, ignoring message");
-                        Console.WriteLine(Encoding.UTF8.GetString(new ReadOnlySpan<byte>(receiveBuffer, 0, receiveResult.Count)));
+                        //Console.WriteLine(Encoding.UTF8.GetString(new ReadOnlySpan<byte>(receiveBuffer, 0, receiveResult.Count)));
                         break;
 
                     case WebSocketMessageType.Close:
