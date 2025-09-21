@@ -10,6 +10,43 @@ public static class QuaternionUtils {
     public static double[] ToVQFDoubleArray(this Vector3 vector3) {
         return new double[] { (double)vector3.X, (double)-vector3.Z, (double)vector3.Y };
     }
+    public static void ToAxisAngle(this Quaternion q, out Vector3 axis, out float angle)
+    {
+        if (q.W > 1f) q = Quaternion.Normalize(q); // normalize if needed
+
+        angle = 2f * MathF.Acos(q.W);
+        float s = MathF.Sqrt(1f - q.W * q.W);
+
+        if (s < 0.0001f)
+        {
+            // If s is close to zero, direction of axis is not important
+            axis = new Vector3(1, 0, 0);
+        } else
+        {
+            axis = new Vector3(q.X / s, q.Y / s, q.Z / s);
+        }
+    }
+    /// <summary>
+    /// Returns the local rotation of a child relative to a parent rotation
+    /// </summary>
+    public static Quaternion LocalRotation(this Quaternion child, Quaternion parent)
+    {
+        // Equivalent to Unity: child.localRotation = Quaternion.Inverse(parent.rotation) * child.rotation
+        return Quaternion.Normalize(Quaternion.Inverse(parent) * child);
+    }
+    public static Vector3 TransformAxis(Quaternion rotation, Vector3 localAxis)
+    {
+        return Vector3.Transform(localAxis, rotation); // rotation applied to vector
+    }
+
+    public static Quaternion Normalize(this Quaternion q)
+    {
+        float mag = (float)Math.Sqrt(q.X * q.X + q.Y * q.Y + q.Z * q.Z + q.W * q.W);
+        if (mag < 1e-6f)
+            return Quaternion.Identity; // fallback
+        return new Quaternion(q.X / mag, q.Y / mag, q.Z / mag, q.W / mag);
+    }
+
     public static Quaternion QuatFromGravity(
         float x, float y, float z,
         float cx, float cy, float cz,

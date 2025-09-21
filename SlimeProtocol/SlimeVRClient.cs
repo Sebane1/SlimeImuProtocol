@@ -17,6 +17,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.WebSockets;
 using System.Numerics;
+using System.Security.Principal;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,6 +34,7 @@ public class SlimeVRClient
     public DataFeedUpdate? Skeleton { get; private set; }
     public Transform SkeletonToCameraTransform { get; private set; }
     public Dictionary<string, TrackerState> Trackers { get => _trackers; set => _trackers = value; }
+    public bool UsesSkeletalRotation { get; set; } = true;
 
     private readonly Uri serverUri = new("ws://localhost:21110");
     private const int FPS = 200;
@@ -232,6 +234,8 @@ public class SlimeVRClient
             // Map BodyPart -> IP (from devices)
             var bodyPartIpMap = new Dictionary<string, string>();
             var firmwareMap = new Dictionary<string, string>();
+            var customNameMap = new Dictionary<string, string>();
+            int noneCounter = 0;
             for (var d = 0; d < update.DevicesLength; ++d)
             {
                 var device = update.Devices(d);
@@ -257,29 +261,43 @@ public class SlimeVRClient
                         var tracker = device.Value.Trackers(t);
                         if (!tracker.HasValue) continue;
                         var bodyPart = tracker.Value.Info.Value.BodyPart.ToString();
-                        bodyPartIpMap[bodyPart] = ip;
-                        firmwareMap[bodyPart] = firmware;
+                        if (bodyPart == "NONE")
+                        {
+                            HandleSolarXRMessage(tracker.Value.Info.Value.CustomName, firmware, ip, new Vector3(),
+                                new Quaternion(tracker.Value.Rotation.Value.X, tracker.Value.Rotation.Value.Y, tracker.Value.Rotation.Value.Z, tracker.Value.Rotation.Value.W));
+                        } else if (!UsesSkeletalRotation)
+                        {
+                            HandleSolarXRMessage(bodyPart, firmware, ip, new Vector3(),
+                            new Quaternion(tracker.Value.Rotation.Value.X, tracker.Value.Rotation.Value.Y, tracker.Value.Rotation.Value.Z, tracker.Value.Rotation.Value.W));
+                        } else
+                        {
+                            bodyPartIpMap[bodyPart] = ip;
+                            firmwareMap[bodyPart] = firmware;
+                        }
                     }
                 }
             }
 
-            // Process bones
-            for (var b = 0; b < update.BonesLength; ++b)
+            if (UsesSkeletalRotation)
             {
-                var optionalBone = update.Bones(b);
-                if (!optionalBone.HasValue) continue;
+                // Process bones
+                int noneCounterCounted = 0;
+                for (var b = 0; b < update.BonesLength; ++b)
+                {
+                    var optionalBone = update.Bones(b);
+                    if (!optionalBone.HasValue) continue;
 
-                var bone = optionalBone.Value;
-                if (!bone.RotationG.HasValue) continue;
+                    var bone = optionalBone.Value;
+                    if (!bone.RotationG.HasValue) continue;
+                    var boneName = bone.BodyPart.ToString();
+                    string ip = bodyPartIpMap.TryGetValue(bone.BodyPart.ToString(), out var mappedIp) ? mappedIp : "";
+                    string firmware = firmwareMap.TryGetValue(bone.BodyPart.ToString(), out var mappedFirmware) ? mappedFirmware : "";
 
-                string ip = bodyPartIpMap.TryGetValue(bone.BodyPart.ToString(), out var mappedIp) ? mappedIp : "";
-                string firmware = firmwareMap.TryGetValue(bone.BodyPart.ToString(), out var mappedFirmware) ? mappedFirmware : "";
-
-                var headPosition = RHSToLHSVector3(bone.HeadPositionG.Value);
-                var headRotation = RHSToLHSQuaternion(bone.RotationG.Value)
-                    * Quaternion.CreateFromAxisAngle(new Vector3(1, 0, 0), -90.0f);
-
-                HandleSolarXRMessage(bone.BodyPart.ToString(), firmware, ip, headPosition, headRotation);
+                    var headPosition = RHSToLHSVector3(bone.HeadPositionG.Value);
+                    var headRotation = RHSToLHSQuaternion(bone.RotationG.Value)
+                        * Quaternion.CreateFromAxisAngle(new Vector3(1, 0, 0), -90.0f);
+                    HandleSolarXRMessage(boneName, firmware, ip, headPosition, headRotation);
+                }
             }
         }
         NewDataReceived?.Invoke(this, EventArgs.Empty);
@@ -296,38 +314,45 @@ public class SlimeVRClient
     }
 
 
+
     void HandleSolarXRMessage(string bodyPart, string firmware, string ipAddress, Vector3 position, Quaternion rotation)
     {
         try
         {
-            var eulerCalibration = new Vector3();
-            var positionCalibration = new Vector3();
-
-            Quaternion localRotation = rotation;
-
-            Quaternion worldRotation = localRotation;
-
-            if (!_trackers.ContainsKey(bodyPart))
+            if (!string.IsNullOrEmpty(bodyPart))
             {
-                eulerCalibration = localRotation.QuaternionToEuler();
-                positionCalibration = position;
-            } else
-            {
-                eulerCalibration = _trackers[bodyPart].EulerCalibration;
-                positionCalibration = _trackers[bodyPart].PositionCalibration;
+                var eulerCalibration = new Vector3();
+                var positionCalibration = new Vector3();
+                var rotationCalibration = Quaternion.Identity;
+                Quaternion localRotation = rotation.Normalize();
+
+                Quaternion worldRotation = localRotation;
+
+                if (!_trackers.ContainsKey(bodyPart))
+                {
+                    eulerCalibration = localRotation.QuaternionToEuler();
+                    positionCalibration = position;
+                    rotationCalibration = rotation;
+                } else
+                {
+                    eulerCalibration = _trackers[bodyPart].EulerCalibration;
+                    positionCalibration = _trackers[bodyPart].PositionCalibration;
+                    rotationCalibration = _trackers[bodyPart].RotationCalibration;
+                }
+
+                _trackers[bodyPart] = new TrackerState
+                {
+                    PositionCalibration = positionCalibration,
+                    Position = position,
+                    EulerCalibration = eulerCalibration,
+                    BodyPart = bodyPart,
+                    RotationCalibration = rotationCalibration,
+                    Ip = ipAddress,
+                    Firmware = firmware,
+                    Rotation = localRotation,
+                    WorldRotation = worldRotation
+                };
             }
-
-            _trackers[bodyPart] = new TrackerState
-            {
-                PositionCalibration = positionCalibration,
-                Position = position,
-                EulerCalibration = eulerCalibration,
-                BodyPart = bodyPart,
-                Ip = ipAddress,
-                Firmware = firmware,
-                Rotation = localRotation,
-                WorldRotation = worldRotation
-            };
         } catch (Exception ex)
         {
             Console.WriteLine($"Parse error: {ex.Message}");

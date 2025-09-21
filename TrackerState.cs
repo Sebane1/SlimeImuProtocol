@@ -24,9 +24,11 @@ namespace ImuToXInput
         private Vector3 _positionCalibration;
 
         private Quaternion _rotation;
+        private Quaternion _rotationCalibration;
         private Vector3 _euler;
 
         private Vector3 _eulerCalibration;
+
 
 
         public int TrackerId { get; set; }
@@ -46,6 +48,15 @@ namespace ImuToXInput
                 _rotation = value;
                 _euler = _rotation.QuaternionToEuler();
             }
+        }
+
+        public Quaternion RotationCalibrated
+        {
+            get
+            {
+                return Quaternion.Inverse(_rotationCalibration) * _rotation;
+            }
+
         }
 
         public Vector3 CalibratedPosition { get { return _position - _positionCalibration; } }
@@ -69,5 +80,6 @@ namespace ImuToXInput
         public Vector3 Position { get => _position; set => _position = value; }
         public Vector3 PositionCalibration { get => _positionCalibration; set => _positionCalibration = value; }
         public Quaternion WorldRotation { get; internal set; }
+        public Quaternion RotationCalibration { get => _rotationCalibration; set => _rotationCalibration = value; }
     }
 }
