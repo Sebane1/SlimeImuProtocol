@@ -144,12 +144,10 @@ namespace SlimeImuProtocol.SlimeVR {
             accellerationPacketStream.Position = 0;
             writer.Write(UDPPackets.ACCELERATION); // Header
             writer.Write(_packetId++); // Packet counter
-            writer.Write((byte)trackerId); // Tracker id
-            writer.Write((byte)1); // Data type 
-            writer.Write(acceleration.X); // Euler X
-            writer.Write(acceleration.Y); // Euler Y
+            writer.Write(acceleration.Y); // Euler X
+            writer.Write(acceleration.X); // Euler Y
             writer.Write(acceleration.Z); // Euler Z
-            writer.Write((byte)0); // Calibration Info
+            writer.Write((byte)trackerId); // Tracker id
             accellerationPacketStream.Position = 0;
             var data = accellerationPacketStream.ToArray();
             return data;
