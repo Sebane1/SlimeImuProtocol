@@ -166,6 +166,7 @@ namespace SlimeImuProtocol.SlimeVR {
             public static int RECIEVE_VIBRATE = 2;
             public static int RECIEVE_HANDSHAKE = 3;
             public static int RECIEVE_COMMAND = 4;
+            public static int BUNDLE = 100;
         }
 
     }

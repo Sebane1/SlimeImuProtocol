@@ -17,12 +17,18 @@ namespace SlimeImuProtocol {
         public bool NeedsMounting { get; set; }
         public bool UsesTimeout { get; set; }
         public MagnetometerStatus MagStatus { get; set; }
+
+        private FunctionSequenceManager _functionSequenceManager;
+
         public float BatteryLevel {
             get => _batteryLevel;
-            set {
+            set
+            {
                 _batteryLevel = value;
                 if (_ready)
+                {
                     _udpHandler.SetSensorBattery(_batteryLevel, BatteryVoltage);
+                }
             }
         }
         public float BatteryVoltage { get; set; }
@@ -35,16 +41,20 @@ namespace SlimeImuProtocol {
         private UDPHandler _udpHandler;
         private bool _ready;
         private float _batteryLevel;
+        private Quaternion _currentRotation;
+        private Vector3 _currentAcceleration;
 
         // These can be set after construction when device data is parsed
         public string FirmwareVersion { get; set; }
         public string HardwareIdentifier { get; set; }
         public BoardType BoardType { get; set; }
         public McuType McuType { get; set; }
+        public Quaternion CurrentRotation { get => _currentRotation; set => _currentRotation = value; }
+        public Vector3 CurrentAcceleration { get => _currentAcceleration; set => _currentAcceleration = value; }
 
         public Tracker(TrackerDevice device, int trackerNum, string name, string displayName, bool hasRotation, bool hasAcceleration,
             bool userEditable, ImuType imuType, bool allowFiltering, bool needsReset,
-            bool needsMounting, bool usesTimeout, MagnetometerStatus magStatus) {
+            bool needsMounting, bool usesTimeout, MagnetometerStatus magStatus, FunctionSequenceManager functionSequenceManager) {
             TrackerNum = trackerNum;
             Name = name;
             DisplayName = displayName;
@@ -57,12 +67,14 @@ namespace SlimeImuProtocol {
             NeedsMounting = needsMounting;
             UsesTimeout = usesTimeout;
             MagStatus = magStatus;
+            _functionSequenceManager = functionSequenceManager;
             Task.Run(() => {
                 while (device.FirmwareVersion == null) {
                     Thread.Sleep(1000);
                 }
                 _udpHandler = new UDPHandler(device.FirmwareVersion + "_EsbToLan", 
-                 Encoding.UTF8.GetBytes(device.HardwareIdentifier), device.BoardType, ImuType, device.McuType, MagStatus, 1);
+                 Encoding.UTF8.GetBytes(device.HardwareIdentifier), device.BoardType, 
+                 ImuType, device.McuType, MagStatus, 1, _functionSequenceManager);
                 _ready = true;
             });
         }
@@ -76,7 +88,8 @@ namespace SlimeImuProtocol {
                     ImuType,
                     McuType,
                     MagStatus,
-                    1
+                    1,
+                    _functionSequenceManager
                 );
                 _ready = true;
             }
@@ -84,17 +97,25 @@ namespace SlimeImuProtocol {
 
         public void SetRotation(Quaternion q) {
             if (_ready)
+            {
+                _currentRotation = q;
                 _udpHandler?.SetSensorRotation(q, 0);
+            }
         }
 
         public void SetAcceleration(Vector3 a) {
             if (_ready)
+            {
+                _currentAcceleration = a;
                 _udpHandler?.SetSensorAcceleration(a, 0);
+            }
         }
 
         public void SetMagVector(Vector3 m) {
             if (_ready)
+            {
                 _udpHandler?.SetSensorMagnetometer(m, 0);
+            }
         }
 
         public async Task DataTick() {
