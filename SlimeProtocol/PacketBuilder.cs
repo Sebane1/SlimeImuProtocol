@@ -29,6 +29,7 @@ namespace SlimeImuProtocol.SlimeVR
         private MemoryStream _batteryLevelPacketStream;
         private MemoryStream _magnetometerPacketStream;
         private MemoryStream _rotationAndAccelerationPacketStream;
+        private MemoryStream _hapticPacketStream;
         private BigEndianBinaryWriter _handshakeWriter;
         private BigEndianBinaryWriter _sensorInfoWriter;
         private BigEndianBinaryWriter _sensorRotationPacketWriter;
@@ -59,6 +60,7 @@ namespace SlimeImuProtocol.SlimeVR
             _batteryLevelPacketStream = new MemoryStream();
             _magnetometerPacketStream = new MemoryStream();
             _rotationAndAccelerationPacketStream = new MemoryStream();
+            _hapticPacketStream = new MemoryStream();
 
             _handshakeWriter = new BigEndianBinaryWriter(_handshakeStream);
             _sensorInfoWriter = new BigEndianBinaryWriter(_sensorInfoStream);
@@ -70,6 +72,8 @@ namespace SlimeImuProtocol.SlimeVR
             _batteryLevelPacketWriter = new BigEndianBinaryWriter(_batteryLevelPacketStream);
             _magnetometerPacketWriter = new BigEndianBinaryWriter(_magnetometerPacketStream);
             _rotationAndAccelerationPacketWriter = new BigEndianBinaryWriter(_rotationAndAccelerationPacketStream);
+            _hapticPacketWriter = new BigEndianBinaryWriter(_hapticPacketStream);
+
 
             _heartBeat = CreateHeartBeat();
         }
@@ -238,14 +242,14 @@ namespace SlimeImuProtocol.SlimeVR
         }
         public byte[] BuildHapticPacket(float intensity, int duration) {
             BigEndianBinaryWriter writer = _hapticPacketWriter;
-            hapticPacketStream.Position = 0;
+            _hapticPacketStream.Position = 0;
             writer.Write(new byte[3]); // Padding
             writer.Write((byte)UDPPackets.HAPTICS); // Header
             writer.Write(intensity); // Vibration Intensity
             writer.Write(duration); // Haptic Duration
             writer.Write(true); // Haptics active
-            hapticPacketStream.Position = 0;
-            var data = hapticPacketStream.ToArray();
+            _hapticPacketStream.Position = 0;
+            var data = _hapticPacketStream.ToArray();
             return data;
         }
     }
