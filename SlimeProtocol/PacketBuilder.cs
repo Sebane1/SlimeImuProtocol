@@ -40,6 +40,7 @@ namespace SlimeImuProtocol.SlimeVR
         private BigEndianBinaryWriter _buttonPushPacketWriter;
         private BigEndianBinaryWriter _batteryLevelPacketWriter;
         private BigEndianBinaryWriter _magnetometerPacketWriter;
+        private BigEndianBinaryWriter _hapticPacketWriter;
 
         public byte[] HeartBeat { get => _heartBeat; set => _heartBeat = value; }
         public long PacketId { get => _packetId; set => _packetId = value; }
@@ -233,6 +234,18 @@ namespace SlimeImuProtocol.SlimeVR
             writer.Write((byte)0); // Calibration Info
             _magnetometerPacketStream.Position = 0;
             var data = _magnetometerPacketStream.ToArray();
+            return data;
+        }
+        public byte[] BuildHapticPacket(float intensity, int duration) {
+            BigEndianBinaryWriter writer = _hapticPacketWriter;
+            hapticPacketStream.Position = 0;
+            writer.Write(new byte[3]); // Padding
+            writer.Write((byte)UDPPackets.HAPTICS); // Header
+            writer.Write(intensity); // Vibration Intensity
+            writer.Write(duration); // Haptic Duration
+            writer.Write(true); // Haptics active
+            hapticPacketStream.Position = 0;
+            var data = hapticPacketStream.ToArray();
             return data;
         }
     }

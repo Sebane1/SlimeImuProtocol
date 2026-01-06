@@ -161,6 +161,7 @@ namespace SlimeImuProtocol.SlimeVR {
             public static int SEND_MAG_STATUS = 61;
             public static int CHANGE_MAG_STATUS = 62;
 
+            public static int HAPTICS = 30;
 
             public static int RECIEVE_HEARTBEAT = 1;
             public static int RECIEVE_VIBRATE = 2;

@@ -7,4 +7,17 @@
     <Configurations>Debug;Release;Release-Phone;Release-Quest</Configurations>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="LucHeart.CoreOSC" Version="1.5.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Google.FlatBuffers">
+      <HintPath>Google.FlatBuffers.dll</HintPath>
+    </Reference>
+    <Reference Include="SlimeVR-SolarXR-Protocol">
+      <HintPath>SlimeVR-SolarXR-Protocol.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>
