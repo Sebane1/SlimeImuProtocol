@@ -14,8 +14,6 @@ namespace SlimeImuProtocol.SlimeVR
         private static bool _handshakeOngoing = false;
         public static event EventHandler OnForceHandshake;
         public static event EventHandler OnForceDestroy;
-        private static int _quaternionDataRateLimitInMilliseconds = 0;
-        private static int _accelerationDataRateLimitInMilliseconds = 0;
         private Stopwatch _timeSinceLastQuaternionDataPacket = new Stopwatch();
         private Stopwatch _timeSinceLastAccelerationDataPacket = new Stopwatch();
         private string _id;
@@ -35,8 +33,6 @@ namespace SlimeImuProtocol.SlimeVR
         public bool Active { get => _active; set => _active = value; }
         public static string Endpoint { get => _endpoint; set => _endpoint = value; }
         public static bool HandshakeOngoing { get => _handshakeOngoing; }
-        public static int QuaternionDataRateLimitInMilliseconds { get => _quaternionDataRateLimitInMilliseconds; set => _quaternionDataRateLimitInMilliseconds = value; }
-        public static int AccelerationDataRateLimitInMilliseconds { get => _accelerationDataRateLimitInMilliseconds; set => _accelerationDataRateLimitInMilliseconds = value; }
 
         public UDPHandler(string firmware, byte[] hardwareAddress, BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magnetometerStatus, int supportedSensorCount, FunctionSequenceManager functionSequenceManager)
         {
@@ -174,17 +170,13 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null)
             {
-                if (_timeSinceLastQuaternionDataPacket.ElapsedMilliseconds > _quaternionDataRateLimitInMilliseconds || !_timeSinceLastQuaternionDataPacket.IsRunning)
+                if (!QuatEqualsWithEpsilon(_lastQuaternion, rotation))
                 {
-                    if (!QuatEqualsWithEpsilon(_lastQuaternion, rotation))
-                    {
-                        _functionSequenceManager.AddFunctionToQueue(_id + "_r", async delegate
-                        {
-                            await udpClient.SendAsync(packetBuilder.BuildRotationPacket(rotation, trackerId));
-                        });
-                        _timeSinceLastQuaternionDataPacket.Restart();
-                        _lastQuaternion = rotation;
-                    }
+                    //_functionSequenceManager.AddFunctionToQueue(_id + "_r", async delegate
+                    //{
+                        await udpClient.SendAsync(packetBuilder.BuildRotationPacket(rotation, trackerId));
+                    ////});
+                    _lastQuaternion = rotation;
                 }
             }
             return true;
@@ -202,18 +194,12 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null)
             {
-                //if (_timeSinceLastAccelerationDataPacket.ElapsedMilliseconds >= _accelerationDataRateLimitInMilliseconds || !_timeSinceLastAccelerationDataPacket.IsRunning)
-                //{
-                if (Vector3.Distance(_lastAccelerationPacket, acceleration) > 0.0001f)
+                if (Vector3.Distance(_lastAccelerationPacket, acceleration) > 0.01f)
                 {
-                    //_functionSequenceManager.AddFunctionToQueue(_id + "_a", async delegate
-                    //{
-                        await udpClient.SendAsync(packetBuilder.BuildAccelerationPacket(acceleration, trackerId));
-                    //});
+                    await udpClient.SendAsync(packetBuilder.BuildAccelerationPacket(acceleration, trackerId));
                     _timeSinceLastAccelerationDataPacket.Restart();
                     _lastAccelerationPacket = acceleration;
                 }
-                //}
             }
             return true;
         }
@@ -278,7 +264,7 @@ namespace SlimeImuProtocol.SlimeVR
             }
             catch
             {
-
+                _handshakeOngoing = false;
             }
         }
         public async void ListenForHeartbeat(BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magnetometerStatus, byte[] macAddress)
@@ -323,6 +309,7 @@ namespace SlimeImuProtocol.SlimeVR
                         disposed = true;
                         udpClient?.Close();
                         udpClient = null;
+                        _handshakeOngoing = false;
                     }
                 }
             }

@@ -163,11 +163,10 @@ namespace SlimeImuProtocol.SlimeVR
             _accelerationPacketStream.Position = 0;
             writer.Write(UDPPackets.ACCELERATION); // Header
             writer.Write(_packetId++); // Packet counter
-            writer.Write((byte)trackerId); // Tracker id
             writer.Write(acceleration.X); // Euler X
             writer.Write(acceleration.Y); // Euler Y
             writer.Write(acceleration.Z); // Euler Z
-            writer.Write((byte)0); // Calibration Info
+            writer.Write(trackerId); // Tracker id
             _accelerationPacketStream.Position = 0;
             var data = _accelerationPacketStream.ToArray();
             return data;
