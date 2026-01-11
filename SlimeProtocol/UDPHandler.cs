@@ -102,7 +102,6 @@ namespace SlimeImuProtocol.SlimeVR
                 udpClient?.Close();
                 udpClient?.Dispose();
             }
-            packetBuilder.PacketId = 0;
             udpClient = new UdpClient();
             udpClient.Connect(_endpoint, 6969);
         }
@@ -170,17 +169,13 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null)
             {
-               // if (!QuatEqualsWithEpsilon(_lastQuaternion, rotation))
-               // {
-                    //_functionSequenceManager.AddFunctionToQueue(_id + "_r", async delegate
-                    //{
-                        await udpClient.SendAsync(packetBuilder.BuildRotationPacket(rotation, trackerId));
-                    ////});
-                    _lastQuaternion = rotation;
-               // }
+
+                await udpClient.SendAsync(packetBuilder.BuildRotationPacket(rotation, trackerId));
+                _lastQuaternion = rotation;
             }
             return true;
         }
+
         public static bool QuatEqualsWithEpsilon(Quaternion a, Quaternion b)
         {
             const float epsilon = 0.0001f;
@@ -194,12 +189,9 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null)
             {
-                //if (Vector3.Distance(_lastAccelerationPacket, acceleration) > 0.01f)
-                //{
-                    await udpClient.SendAsync(packetBuilder.BuildAccelerationPacket(acceleration, trackerId));
-                    _timeSinceLastAccelerationDataPacket.Restart();
-                    _lastAccelerationPacket = acceleration;
-                //}
+                await udpClient.SendAsync(packetBuilder.BuildAccelerationPacket(acceleration, trackerId));
+                _timeSinceLastAccelerationDataPacket.Restart();
+                _lastAccelerationPacket = acceleration;
             }
             return true;
         }
@@ -289,7 +281,7 @@ namespace SlimeImuProtocol.SlimeVR
             return true;
         }
 
-        public async Task<bool> SetSensorMagnetometer(Vector3 magnetometer, int trackerId)
+        public async Task<bool> SetSensorMagnetometer(Vector3 magnetometer, byte trackerId)
         {
             if (udpClient != null)
             {

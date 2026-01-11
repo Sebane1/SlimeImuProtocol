@@ -1,255 +1,217 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿using SlimeImuProtocol.SlimeVR;
+using System;
+using System.Buffers.Binary;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 using static SlimeImuProtocol.SlimeVR.FirmwareConstants;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using static SlimeImuProtocol.Utility.BigEndianExtensions;
-using SlimeImuProtocol.Utility;
+
 namespace SlimeImuProtocol.SlimeVR
 {
     public class PacketBuilder
     {
-        private string _identifierString = "Dualsense-IMU-Tracker";
+        private string _identifierString = "Bootleg Tracker";
         private int _protocolVersion = 19;
-        private long _packetId = 0;
+        private long _packetId;
 
-        private byte[] _heartBeat = new byte[0];
-        private MemoryStream _heartbeatStream;
-        private MemoryStream _handshakeStream;
-        private MemoryStream _sensorInfoStream;
-        private MemoryStream _rotationPacketStream;
-        private MemoryStream _accelerationPacketStream;
-        private MemoryStream _gyroPacketStream;
-        private MemoryStream _flexdataPacketStream;
-        private MemoryStream _buttonPushPacketStream;
-        private MemoryStream _batteryLevelPacketStream;
-        private MemoryStream _magnetometerPacketStream;
-        private MemoryStream _rotationAndAccelerationPacketStream;
-        private MemoryStream _hapticPacketStream;
-        private BigEndianBinaryWriter _handshakeWriter;
-        private BigEndianBinaryWriter _sensorInfoWriter;
-        private BigEndianBinaryWriter _sensorRotationPacketWriter;
-        private BigEndianBinaryWriter _rotationPacketWriter;
-        private BigEndianBinaryWriter _accelerationPacketWriter;
-        private BigEndianBinaryWriter _rotationAndAccelerationPacketWriter;
-        private BigEndianBinaryWriter _gyroPacketWriter;
-        private BigEndianBinaryWriter _flexDataPacketWriter;
-        private BigEndianBinaryWriter _buttonPushPacketWriter;
-        private BigEndianBinaryWriter _batteryLevelPacketWriter;
-        private BigEndianBinaryWriter _magnetometerPacketWriter;
-        private BigEndianBinaryWriter _hapticPacketWriter;
+        // Pre-allocated buffers for high-frequency packets
+        private readonly byte[] _rotationBuffer = new byte[1 + 8 + 1 + 1 + 16 + 1];
+        private readonly byte[] _accelerationBuffer = new byte[1 + 8 + 12 + 1];
+        private readonly byte[] _gyroBuffer = new byte[1 + 8 + 1 + 1 + 12 + 1];
+        private readonly byte[] _magnetometerBuffer = new byte[1 + 8 + 1 + 1 + 12 + 1];
+        private readonly byte[] _flexDataBuffer = new byte[1 + 8 + 1 + 4];
+        private readonly byte[] _buttonBuffer = new byte[1 + 8 + 1];
+        private readonly byte[] _batteryBuffer = new byte[1 + 8 + 4 + 4];
+        private readonly byte[] _hapticBuffer = new byte[3 + 1 + 4 + 4 + 1];
 
-        public byte[] HeartBeat { get => _heartBeat; set => _heartBeat = value; }
-        public long PacketId { get => _packetId; set => _packetId = value; }
+        public readonly byte[] HeartBeat;
 
         public PacketBuilder(string fwString)
         {
             _identifierString = fwString;
-            _heartbeatStream = new MemoryStream();
-            _handshakeStream = new MemoryStream();
-            _sensorInfoStream = new MemoryStream();
-            _rotationPacketStream = new MemoryStream();
-            _accelerationPacketStream = new MemoryStream();
-            _gyroPacketStream = new MemoryStream();
-            _flexdataPacketStream = new MemoryStream();
-            _buttonPushPacketStream = new MemoryStream();
-            _batteryLevelPacketStream = new MemoryStream();
-            _magnetometerPacketStream = new MemoryStream();
-            _rotationAndAccelerationPacketStream = new MemoryStream();
-            _hapticPacketStream = new MemoryStream();
+            HeartBeat = CreateHeartBeat();
+        }
 
-            _handshakeWriter = new BigEndianBinaryWriter(_handshakeStream);
-            _sensorInfoWriter = new BigEndianBinaryWriter(_sensorInfoStream);
-            _rotationPacketWriter = new BigEndianBinaryWriter(_rotationPacketStream);
-            _accelerationPacketWriter = new BigEndianBinaryWriter(_accelerationPacketStream);
-            _gyroPacketWriter = new BigEndianBinaryWriter(_gyroPacketStream);
-            _flexDataPacketWriter = new BigEndianBinaryWriter(_flexdataPacketStream);
-            _buttonPushPacketWriter = new BigEndianBinaryWriter(_buttonPushPacketStream);
-            _batteryLevelPacketWriter = new BigEndianBinaryWriter(_batteryLevelPacketStream);
-            _magnetometerPacketWriter = new BigEndianBinaryWriter(_magnetometerPacketStream);
-            _rotationAndAccelerationPacketWriter = new BigEndianBinaryWriter(_rotationAndAccelerationPacketStream);
-            _hapticPacketWriter = new BigEndianBinaryWriter(_hapticPacketStream);
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        private long NextPacketId()
+        {
+            if (_packetId >= long.MaxValue)
+                _packetId = 0;
+            return _packetId++;
+        }
 
+        ref struct BigEndianSpanWriter
+        {
+            private Span<byte> _span;
+            private int _offset;
 
-            _heartBeat = CreateHeartBeat();
+            public BigEndianSpanWriter(Span<byte> span)
+            {
+                _span = span;
+                _offset = 0;
+            }
+
+            public void WriteByte(byte value) => _span[_offset++] = value;
+            public void WriteInt16(short value)
+            {
+                BinaryPrimitives.WriteInt16BigEndian(_span.Slice(_offset, 2), value);
+                _offset += 2;
+            }
+            public void WriteInt32(int value)
+            {
+                BinaryPrimitives.WriteInt32BigEndian(_span.Slice(_offset, 4), value);
+                _offset += 4;
+            }
+            public void WriteInt64(long value)
+            {
+                BinaryPrimitives.WriteInt64BigEndian(_span.Slice(_offset, 8), value);
+                _offset += 8;
+            }
+            public void WriteSingle(float value)
+            {
+                BinaryPrimitives.WriteSingleBigEndian(_span.Slice(_offset, 4), value);
+                _offset += 4;
+            }
+            public int Position => _offset;
         }
 
         private byte[] CreateHeartBeat()
         {
-            BigEndianBinaryWriter writer = new BigEndianBinaryWriter(_heartbeatStream);
-            _heartbeatStream.Position = 0;
-            writer.Write(UDPPackets.HEARTBEAT); // header
-            writer.Write(_packetId++); // packet counter
-            writer.Write((byte)0); // Tracker Id
-            _heartbeatStream.Position = 0;
-            var data = _heartbeatStream.ToArray();
-            _heartbeatStream?.Dispose();
-            return data;
+            var span = new Span<byte>(new byte[1 + 8 + 1]);
+            var writer = new BigEndianSpanWriter(span);
+            writer.WriteByte((byte)UDPPackets.HEARTBEAT);
+            writer.WriteInt64(NextPacketId());
+            writer.WriteByte(0); // TrackerId
+            return span.ToArray(); // only called once
         }
 
-        public byte[] BuildHandshakePacket(BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magnetometerStatus, byte[] macAddress)
+        public ReadOnlyMemory<byte> BuildRotationPacket(Quaternion r, byte trackerId)
         {
-            BigEndianBinaryWriter writer = _handshakeWriter;
-            _handshakeStream.Position = 0;
-            writer.Write(UDPPackets.HANDSHAKE); // header
-            writer.Write((long)_packetId++); // packet counter
-            writer.Write((int)boardType); // Board type
-            writer.Write((int)imuType); //IMU type
-            writer.Write((int)mcuType); // MCU Type
-
-            writer.Write((int)magnetometerStatus); // IMU Info
-            writer.Write((int)magnetometerStatus); // IMU Info
-            writer.Write((int)magnetometerStatus); // IMU Info
-
-            writer.Write(_protocolVersion); // Protocol Version
-            byte[] utf8Bytes = Encoding.UTF8.GetBytes(_identifierString);
-            writer.Write((byte)utf8Bytes.Length); // identifier string
-            writer.Write(utf8Bytes); // identifier string
-            writer.Write(macAddress); // MAC Address
-            _handshakeStream.Position = 0;
-            var data = _handshakeStream.ToArray();
-            return data;
+            var writer = new BigEndianSpanWriter(_rotationBuffer.AsSpan());
+            writer.WriteByte((byte)UDPPackets.ROTATION_DATA);
+            writer.WriteInt64(NextPacketId());
+            writer.WriteByte(trackerId);
+            writer.WriteByte(1); // Data type
+            writer.WriteSingle(r.X);
+            writer.WriteSingle(r.Y);
+            writer.WriteSingle(r.Z);
+            writer.WriteSingle(r.W);
+            writer.WriteByte(0); // Calibration
+            return _rotationBuffer.AsMemory(0, writer.Position);
         }
 
-
-        public byte[] BuildSensorInfoPacket(ImuType imuType, TrackerPosition trackerPosition, TrackerDataType trackerDataType, byte trackerId)
+        public ReadOnlyMemory<byte> BuildAccelerationPacket(Vector3 a, byte trackerId)
         {
-            BigEndianBinaryWriter writer = _sensorInfoWriter;
-            _sensorInfoStream.Position = 0;
-            writer.Write((int)UDPPackets.SENSOR_INFO); // Packet header
-            writer.Write((long)_packetId++); // Packet counter
-            writer.Write((byte)trackerId); // Tracker Id
-            writer.Write((byte)0); // Sensor status
-            writer.Write((byte)imuType); // imu type
-            writer.Write((short)1); // Calibration state
-            writer.Write((byte)trackerPosition); // Tracker Position
-            writer.Write((byte)trackerDataType); // Tracker Data Type
-            _sensorInfoStream.Position = 0;
-            var data = _sensorInfoStream.ToArray();
-            return data;
+            var writer = new BigEndianSpanWriter(_accelerationBuffer.AsSpan());
+            writer.WriteByte((byte)UDPPackets.ACCELERATION);
+            writer.WriteInt64(NextPacketId());
+            writer.WriteSingle(a.X);
+            writer.WriteSingle(a.Y);
+            writer.WriteSingle(a.Z);
+            writer.WriteByte(trackerId);
+            return _accelerationBuffer.AsMemory(0, writer.Position);
         }
 
-        public byte[] BuildRotationAndAccelerationBundle(Quaternion rotation, Vector3 acceleration, byte trackerId)
+        public ReadOnlyMemory<byte> BuildGyroPacket(Vector3 g, byte trackerId)
         {
-            BigEndianBinaryWriter writer = _rotationAndAccelerationPacketWriter;
-            _rotationAndAccelerationPacketStream.Position = 0;
-            return _rotationAndAccelerationPacketStream.ToArray();
+            var writer = new BigEndianSpanWriter(_gyroBuffer.AsSpan());
+            writer.WriteByte((byte)UDPPackets.GYRO);
+            writer.WriteInt64(NextPacketId());
+            writer.WriteByte(trackerId);
+            writer.WriteByte(1);
+            writer.WriteSingle(g.X);
+            writer.WriteSingle(g.Y);
+            writer.WriteSingle(g.Z);
+            writer.WriteByte(0);
+            return _gyroBuffer.AsMemory(0, writer.Position);
         }
 
-        public byte[] BuildRotationPacket(Quaternion rotation, byte trackerId)
+        public ReadOnlyMemory<byte> BuildMagnetometerPacket(Vector3 m, byte trackerId)
         {
-            BigEndianBinaryWriter writer = _rotationPacketWriter;
-            _rotationPacketStream.Position = 0;
-            writer.Write(UDPPackets.ROTATION_DATA); // Header
-            writer.Write(_packetId++); // Packet counter
-            writer.Write((byte)trackerId); // Tracker id
-            writer.Write((byte)1); // Data type
-            writer.Write(rotation.X); // Quaternion X
-            writer.Write(rotation.Y); // Quaternion Y
-            writer.Write(rotation.Z); // Quaternion Z
-            writer.Write(rotation.W); // Quaternion W
-            writer.Write((byte)0); // Calibration Info
-            _rotationPacketStream.Position = 0;
-            var data = _rotationPacketStream.ToArray();
-            return data;
-        }
-        public byte[] BuildAccelerationPacket(Vector3 acceleration, byte trackerId)
-        {
-            BigEndianBinaryWriter writer = _accelerationPacketWriter;
-            _accelerationPacketStream.Position = 0;
-            writer.Write(UDPPackets.ACCELERATION); // Header
-            writer.Write(_packetId++); // Packet counter
-            writer.Write(acceleration.X); // Euler X
-            writer.Write(acceleration.Y); // Euler Y
-            writer.Write(acceleration.Z); // Euler Z
-            writer.Write(trackerId); // Tracker id
-            _accelerationPacketStream.Position = 0;
-            var data = _accelerationPacketStream.ToArray();
-            return data;
-        }
-        public byte[] BuildGyroPacket(Vector3 gyro, byte trackerId)
-        {
-            BigEndianBinaryWriter writer = _gyroPacketWriter;
-            _gyroPacketStream.Position = 0;
-            writer.Write(UDPPackets.GYRO); // Header
-            writer.Write(_packetId++); // Packet counter
-            writer.Write((byte)trackerId); // Tracker id
-            writer.Write((byte)1); // Data type 
-            writer.Write(gyro.X); // Euler X
-            writer.Write(gyro.Y); // Euler Y
-            writer.Write(gyro.Z); // Euler Z
-            writer.Write((byte)0); // Calibration Info
-            _gyroPacketStream.Position = 0;
-            var data = _gyroPacketStream.ToArray();
-            return data;
-        }
-        public byte[] BuildFlexDataPacket(float flexData, byte trackerId)
-        {
-            BigEndianBinaryWriter writer = _flexDataPacketWriter;
-            _flexdataPacketStream.Position = 0;
-            writer.Write(UDPPackets.FLEX_DATA_PACKET); // Header
-            writer.Write(_packetId++); // Packet counter
-            writer.Write((byte)trackerId); // Tracker id
-            writer.Write(flexData); // Flex data
-            _flexdataPacketStream.Position = 0;
-            var data = _flexdataPacketStream.ToArray();
-            return data;
-        }
-        public byte[] BuildButtonPushedPacket(UserActionType userActionType)
-        {
-            BigEndianBinaryWriter writer = _buttonPushPacketWriter;
-            _buttonPushPacketStream.Position = 0;
-            writer.Write(UDPPackets.CALIBRATION_RESET); // Header 21
-            writer.Write(_packetId++); // Packet counter
-            writer.Write((byte)userActionType); // Action
-            _buttonPushPacketStream.Position = 0;
-            var data = _buttonPushPacketStream.ToArray();
-            return data;
-        }
-        public byte[] BuildBatteryLevelPacket(float battery, float voltage)
-        {
-            BigEndianBinaryWriter writer = _batteryLevelPacketWriter;
-            _batteryLevelPacketStream.Position = 0;
-            writer.Write(UDPPackets.BATTERY_LEVEL); // Header
-            writer.Write(_packetId++); // Packet counter
-            writer.Write(voltage); // Battery data
-            writer.Write(battery / 100); // Battery data
-            _batteryLevelPacketStream.Position = 0;
-            var data = _batteryLevelPacketStream.ToArray();
-            return data;
+            var writer = new BigEndianSpanWriter(_magnetometerBuffer.AsSpan());
+            writer.WriteByte((byte)UDPPackets.MAG);
+            writer.WriteInt64(NextPacketId());
+            writer.WriteByte(trackerId);
+            writer.WriteByte(1);
+            writer.WriteSingle(m.X);
+            writer.WriteSingle(m.Y);
+            writer.WriteSingle(m.Z);
+            writer.WriteByte(0);
+            return _magnetometerBuffer.AsMemory(0, writer.Position);
         }
 
-        public byte[] BuildMagnetometerPacket(Vector3 magnetometer, int trackerId)
+        public ReadOnlyMemory<byte> BuildFlexDataPacket(float flex, byte trackerId)
         {
-            BigEndianBinaryWriter writer = _magnetometerPacketWriter;
-            _magnetometerPacketStream.Position = 0;
-            writer.Write(UDPPackets.MAG); // Header
-            writer.Write(_packetId++); // Packet counter
-            writer.Write((byte)trackerId); // Tracker id
-            writer.Write((byte)1); // Data type 
-            writer.Write(magnetometer.X); // Euler X
-            writer.Write(magnetometer.Y); // Euler Y
-            writer.Write(magnetometer.Z); // Euler Z
-            writer.Write((byte)0); // Calibration Info
-            _magnetometerPacketStream.Position = 0;
-            var data = _magnetometerPacketStream.ToArray();
-            return data;
+            var writer = new BigEndianSpanWriter(_flexDataBuffer.AsSpan());
+            writer.WriteByte((byte)UDPPackets.FLEX_DATA_PACKET);
+            writer.WriteInt64(NextPacketId());
+            writer.WriteByte(trackerId);
+            writer.WriteSingle(flex);
+            return _flexDataBuffer.AsMemory(0, writer.Position);
         }
-        public byte[] BuildHapticPacket(float intensity, int duration) {
-            BigEndianBinaryWriter writer = _hapticPacketWriter;
-            _hapticPacketStream.Position = 0;
-            writer.Write(new byte[3]); // Padding
-            writer.Write((byte)UDPPackets.HAPTICS); // Header
-            writer.Write(intensity); // Vibration Intensity
-            writer.Write(duration); // Haptic Duration
-            writer.Write(true); // Haptics active
-            _hapticPacketStream.Position = 0;
-            var data = _hapticPacketStream.ToArray();
-            return data;
+
+        public ReadOnlyMemory<byte> BuildButtonPushedPacket(UserActionType action)
+        {
+            var writer = new BigEndianSpanWriter(_buttonBuffer.AsSpan());
+            writer.WriteByte((byte)UDPPackets.CALIBRATION_RESET);
+            writer.WriteInt64(NextPacketId());
+            writer.WriteByte((byte)action);
+            return _buttonBuffer.AsMemory(0, writer.Position);
+        }
+
+        public ReadOnlyMemory<byte> BuildBatteryLevelPacket(float battery, float voltage)
+        {
+            var writer = new BigEndianSpanWriter(_batteryBuffer.AsSpan());
+            writer.WriteByte((byte)UDPPackets.BATTERY_LEVEL);
+            writer.WriteInt64(NextPacketId());
+            writer.WriteSingle(voltage);
+            writer.WriteSingle(battery / 100);
+            return _batteryBuffer.AsMemory(0, writer.Position);
+        }
+
+        public ReadOnlyMemory<byte> BuildHapticPacket(float intensity, int duration)
+        {
+            var writer = new BigEndianSpanWriter(_hapticBuffer.AsSpan());
+            writer.WriteByte(0); writer.WriteByte(0); writer.WriteByte(0); // padding
+            writer.WriteByte((byte)UDPPackets.HAPTICS);
+            writer.WriteSingle(intensity);
+            writer.WriteInt32(duration);
+            writer.WriteByte(1); // haptics active
+            return _hapticBuffer.AsMemory(0, writer.Position);
+        }
+
+        public byte[] BuildHandshakePacket(BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magStatus, byte[] mac)
+        {
+            var span = new Span<byte>(new byte[512]);
+            var writer = new BigEndianSpanWriter(span);
+            writer.WriteByte((byte)UDPPackets.HANDSHAKE);
+            writer.WriteInt64(NextPacketId());
+            writer.WriteInt32((int)boardType);
+            writer.WriteInt32((int)imuType);
+            writer.WriteInt32((int)mcuType);
+            writer.WriteInt32((int)magStatus);
+            writer.WriteInt32((int)magStatus);
+            writer.WriteInt32((int)magStatus);
+            writer.WriteInt32(_protocolVersion);
+
+            var idBytes = System.Text.Encoding.UTF8.GetBytes(_identifierString);
+            idBytes.CopyTo(span.Slice(writer.Position, idBytes.Length));
+            writer = new BigEndianSpanWriter(span.Slice(writer.Position + idBytes.Length));
+            mac.CopyTo(span.Slice(writer.Position, mac.Length));
+            return span.Slice(0, writer.Position + mac.Length).ToArray();
+        }
+
+        public byte[] BuildSensorInfoPacket(ImuType imuType, TrackerPosition pos, TrackerDataType dataType, byte trackerId)
+        {
+            var span = new Span<byte>(new byte[16]);
+            var writer = new BigEndianSpanWriter(span);
+            writer.WriteInt32((int)UDPPackets.SENSOR_INFO);
+            writer.WriteInt64(NextPacketId());
+            writer.WriteByte(trackerId);
+            writer.WriteByte(0); // sensor status
+            writer.WriteByte((byte)imuType);
+            writer.WriteInt16(1); // calibration state
+            writer.WriteByte((byte)pos);
+            writer.WriteByte((byte)dataType);
+            return span.Slice(0, writer.Position).ToArray();
         }
     }
 }
