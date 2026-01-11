@@ -12,206 +12,223 @@ namespace SlimeImuProtocol.SlimeVR
         private int _protocolVersion = 19;
         private long _packetId;
 
-        // Pre-allocated buffers for high-frequency packets
-        private readonly byte[] _rotationBuffer = new byte[1 + 8 + 1 + 1 + 16 + 1];
-        private readonly byte[] _accelerationBuffer = new byte[1 + 8 + 12 + 1];
-        private readonly byte[] _gyroBuffer = new byte[1 + 8 + 1 + 1 + 12 + 1];
-        private readonly byte[] _magnetometerBuffer = new byte[1 + 8 + 1 + 1 + 12 + 1];
-        private readonly byte[] _flexDataBuffer = new byte[1 + 8 + 1 + 4];
-        private readonly byte[] _buttonBuffer = new byte[1 + 8 + 1];
-        private readonly byte[] _batteryBuffer = new byte[1 + 8 + 4 + 4];
-        private readonly byte[] _hapticBuffer = new byte[3 + 1 + 4 + 4 + 1];
-
-        public readonly byte[] HeartBeat;
-
         public PacketBuilder(string fwString)
         {
             _identifierString = fwString;
             HeartBeat = CreateHeartBeat();
         }
 
+        public readonly byte[] HeartBeat;
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         private long NextPacketId()
         {
-            if (_packetId >= long.MaxValue)
-                _packetId = 0;
+            if (_packetId >= long.MaxValue) _packetId = 0;
             return _packetId++;
         }
 
-        ref struct BigEndianSpanWriter
+        ref struct BigEndianWriter
         {
             private Span<byte> _span;
-            private int _offset;
+            private int _pos;
 
-            public BigEndianSpanWriter(Span<byte> span)
+            public BigEndianWriter(Span<byte> span)
             {
                 _span = span;
-                _offset = 0;
+                _pos = 0;
             }
 
-            public void WriteByte(byte value) => _span[_offset++] = value;
+            public void WriteByte(byte value) => _span[_pos++] = value;
+
             public void WriteInt16(short value)
             {
-                BinaryPrimitives.WriteInt16BigEndian(_span.Slice(_offset, 2), value);
-                _offset += 2;
+                BinaryPrimitives.WriteInt16BigEndian(_span.Slice(_pos, 2), value);
+                _pos += 2;
             }
+
             public void WriteInt32(int value)
             {
-                BinaryPrimitives.WriteInt32BigEndian(_span.Slice(_offset, 4), value);
-                _offset += 4;
+                BinaryPrimitives.WriteInt32BigEndian(_span.Slice(_pos, 4), value);
+                _pos += 4;
             }
+
             public void WriteInt64(long value)
             {
-                BinaryPrimitives.WriteInt64BigEndian(_span.Slice(_offset, 8), value);
-                _offset += 8;
+                BinaryPrimitives.WriteInt64BigEndian(_span.Slice(_pos, 8), value);
+                _pos += 8;
             }
+
             public void WriteSingle(float value)
             {
-                BinaryPrimitives.WriteSingleBigEndian(_span.Slice(_offset, 4), value);
-                _offset += 4;
+                BinaryPrimitives.WriteSingleBigEndian(_span.Slice(_pos, 4), value);
+                _pos += 4;
             }
-            public int Position => _offset;
+
+            public void Skip(int count) => _pos += count;
+
+            public int Position => _pos;
         }
 
         private byte[] CreateHeartBeat()
         {
-            var span = new Span<byte>(new byte[1 + 8 + 1]);
-            var writer = new BigEndianSpanWriter(span);
-            writer.WriteByte((byte)UDPPackets.HEARTBEAT);
-            writer.WriteInt64(NextPacketId());
-            writer.WriteByte(0); // TrackerId
-            return span.ToArray(); // only called once
+            var span = new byte[4 + 8 + 1]; // header + packetId + trackerId
+            var w = new BigEndianWriter(span);
+            w.WriteInt32((int)UDPPackets.HEARTBEAT);
+            w.WriteInt64(NextPacketId());
+            w.WriteByte(0); // trackerId
+            return span;
         }
 
-        public ReadOnlyMemory<byte> BuildRotationPacket(Quaternion r, byte trackerId)
+        public byte[] BuildRotationPacket(Quaternion r, byte trackerId)
         {
-            var writer = new BigEndianSpanWriter(_rotationBuffer.AsSpan());
-            writer.WriteByte((byte)UDPPackets.ROTATION_DATA);
-            writer.WriteInt64(NextPacketId());
-            writer.WriteByte(trackerId);
-            writer.WriteByte(1); // Data type
-            writer.WriteSingle(r.X);
-            writer.WriteSingle(r.Y);
-            writer.WriteSingle(r.Z);
-            writer.WriteSingle(r.W);
-            writer.WriteByte(0); // Calibration
-            return _rotationBuffer.AsMemory(0, writer.Position);
+            var span = new byte[4 + 8 + 1 + 1 + 16 + 1];
+            var w = new BigEndianWriter(span);
+            w.WriteInt32((int)UDPPackets.ROTATION_DATA);
+            w.WriteInt64(NextPacketId());
+            w.WriteByte(trackerId);
+            w.WriteByte(1); // data type
+            w.WriteSingle(r.X);
+            w.WriteSingle(r.Y);
+            w.WriteSingle(r.Z);
+            w.WriteSingle(r.W);
+            w.WriteByte(0); // calibration
+            return span;
         }
 
-        public ReadOnlyMemory<byte> BuildAccelerationPacket(Vector3 a, byte trackerId)
+        public byte[] BuildAccelerationPacket(Vector3 a, byte trackerId)
         {
-            var writer = new BigEndianSpanWriter(_accelerationBuffer.AsSpan());
-            writer.WriteByte((byte)UDPPackets.ACCELERATION);
-            writer.WriteInt64(NextPacketId());
-            writer.WriteSingle(a.X);
-            writer.WriteSingle(a.Y);
-            writer.WriteSingle(a.Z);
-            writer.WriteByte(trackerId);
-            return _accelerationBuffer.AsMemory(0, writer.Position);
+            var span = new byte[4 + 8 + 12 + 1]; // header + packetId + 3 floats + trackerId
+            var w = new BigEndianWriter(span);
+            w.WriteInt32((int)UDPPackets.ACCELERATION);
+            w.WriteInt64(NextPacketId());
+            w.WriteSingle(a.X);
+            w.WriteSingle(a.Y);
+            w.WriteSingle(a.Z);
+            w.WriteByte(trackerId);
+            return span;
         }
 
-        public ReadOnlyMemory<byte> BuildGyroPacket(Vector3 g, byte trackerId)
+        public byte[] BuildGyroPacket(Vector3 g, byte trackerId)
         {
-            var writer = new BigEndianSpanWriter(_gyroBuffer.AsSpan());
-            writer.WriteByte((byte)UDPPackets.GYRO);
-            writer.WriteInt64(NextPacketId());
-            writer.WriteByte(trackerId);
-            writer.WriteByte(1);
-            writer.WriteSingle(g.X);
-            writer.WriteSingle(g.Y);
-            writer.WriteSingle(g.Z);
-            writer.WriteByte(0);
-            return _gyroBuffer.AsMemory(0, writer.Position);
+            var span = new byte[4 + 8 + 1 + 1 + 12 + 1];
+            var w = new BigEndianWriter(span);
+            w.WriteInt32((int)UDPPackets.GYRO);
+            w.WriteInt64(NextPacketId());
+            w.WriteByte(trackerId);
+            w.WriteByte(1); // data type
+            w.WriteSingle(g.X);
+            w.WriteSingle(g.Y);
+            w.WriteSingle(g.Z);
+            w.WriteByte(0);
+            return span;
         }
 
-        public ReadOnlyMemory<byte> BuildMagnetometerPacket(Vector3 m, byte trackerId)
+        public byte[] BuildMagnetometerPacket(Vector3 m, byte trackerId)
         {
-            var writer = new BigEndianSpanWriter(_magnetometerBuffer.AsSpan());
-            writer.WriteByte((byte)UDPPackets.MAG);
-            writer.WriteInt64(NextPacketId());
-            writer.WriteByte(trackerId);
-            writer.WriteByte(1);
-            writer.WriteSingle(m.X);
-            writer.WriteSingle(m.Y);
-            writer.WriteSingle(m.Z);
-            writer.WriteByte(0);
-            return _magnetometerBuffer.AsMemory(0, writer.Position);
+            var span = new byte[4 + 8 + 1 + 1 + 12 + 1];
+            var w = new BigEndianWriter(span);
+            w.WriteInt32((int)UDPPackets.MAG);
+            w.WriteInt64(NextPacketId());
+            w.WriteByte(trackerId);
+            w.WriteByte(1);
+            w.WriteSingle(m.X);
+            w.WriteSingle(m.Y);
+            w.WriteSingle(m.Z);
+            w.WriteByte(0);
+            return span;
         }
 
-        public ReadOnlyMemory<byte> BuildFlexDataPacket(float flex, byte trackerId)
+        // ------------------- Flex Packet -------------------
+        public byte[] BuildFlexDataPacket(float flex, byte trackerId)
         {
-            var writer = new BigEndianSpanWriter(_flexDataBuffer.AsSpan());
-            writer.WriteByte((byte)UDPPackets.FLEX_DATA_PACKET);
-            writer.WriteInt64(NextPacketId());
-            writer.WriteByte(trackerId);
-            writer.WriteSingle(flex);
-            return _flexDataBuffer.AsMemory(0, writer.Position);
+            var span = new byte[4 + 8 + 1 + 4];
+            var w = new BigEndianWriter(span);
+            w.WriteInt32((int)UDPPackets.FLEX_DATA_PACKET);
+            w.WriteInt64(NextPacketId());
+            w.WriteByte(trackerId);
+            w.WriteSingle(flex);
+            return span;
         }
 
-        public ReadOnlyMemory<byte> BuildButtonPushedPacket(UserActionType action)
+        // ------------------- Button Packet -------------------
+        public byte[] BuildButtonPushedPacket(UserActionType action)
         {
-            var writer = new BigEndianSpanWriter(_buttonBuffer.AsSpan());
-            writer.WriteByte((byte)UDPPackets.CALIBRATION_RESET);
-            writer.WriteInt64(NextPacketId());
-            writer.WriteByte((byte)action);
-            return _buttonBuffer.AsMemory(0, writer.Position);
+            var span = new byte[4 + 8 + 1];
+            var w = new BigEndianWriter(span);
+            w.WriteInt32((int)UDPPackets.CALIBRATION_RESET);
+            w.WriteInt64(NextPacketId());
+            w.WriteByte((byte)action);
+            return span;
         }
 
-        public ReadOnlyMemory<byte> BuildBatteryLevelPacket(float battery, float voltage)
+        // ------------------- Battery Packet -------------------
+        public byte[] BuildBatteryLevelPacket(float battery, float voltage)
         {
-            var writer = new BigEndianSpanWriter(_batteryBuffer.AsSpan());
-            writer.WriteByte((byte)UDPPackets.BATTERY_LEVEL);
-            writer.WriteInt64(NextPacketId());
-            writer.WriteSingle(voltage);
-            writer.WriteSingle(battery / 100);
-            return _batteryBuffer.AsMemory(0, writer.Position);
+            var span = new byte[4 + 8 + 4 + 4];
+            var w = new BigEndianWriter(span);
+            w.WriteInt32((int)UDPPackets.BATTERY_LEVEL);
+            w.WriteInt64(NextPacketId());
+            w.WriteSingle(voltage);
+            w.WriteSingle(battery / 100f);
+            return span;
         }
 
-        public ReadOnlyMemory<byte> BuildHapticPacket(float intensity, int duration)
+        // ------------------- Haptics Packet -------------------
+        public byte[] BuildHapticPacket(float intensity, int duration)
         {
-            var writer = new BigEndianSpanWriter(_hapticBuffer.AsSpan());
-            writer.WriteByte(0); writer.WriteByte(0); writer.WriteByte(0); // padding
-            writer.WriteByte((byte)UDPPackets.HAPTICS);
-            writer.WriteSingle(intensity);
-            writer.WriteInt32(duration);
-            writer.WriteByte(1); // haptics active
-            return _hapticBuffer.AsMemory(0, writer.Position);
+            var span = new byte[4 + 3 + 4 + 4 + 1]; // header + padding + intensity + duration + active
+            var w = new BigEndianWriter(span);
+            w.WriteInt32(0); // padding header?
+            w.WriteByte(0); w.WriteByte(0); w.WriteByte(0);
+            w.WriteByte((byte)UDPPackets.HAPTICS);
+            w.WriteSingle(intensity);
+            w.WriteInt32(duration);
+            w.WriteByte(1); // active
+            return span;
         }
 
         public byte[] BuildHandshakePacket(BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magStatus, byte[] mac)
         {
-            var span = new Span<byte>(new byte[512]);
-            var writer = new BigEndianSpanWriter(span);
-            writer.WriteByte((byte)UDPPackets.HANDSHAKE);
-            writer.WriteInt64(NextPacketId());
-            writer.WriteInt32((int)boardType);
-            writer.WriteInt32((int)imuType);
-            writer.WriteInt32((int)mcuType);
-            writer.WriteInt32((int)magStatus);
-            writer.WriteInt32((int)magStatus);
-            writer.WriteInt32((int)magStatus);
-            writer.WriteInt32(_protocolVersion);
-
             var idBytes = System.Text.Encoding.UTF8.GetBytes(_identifierString);
-            idBytes.CopyTo(span.Slice(writer.Position, idBytes.Length));
-            writer = new BigEndianSpanWriter(span.Slice(writer.Position + idBytes.Length));
-            mac.CopyTo(span.Slice(writer.Position, mac.Length));
-            return span.Slice(0, writer.Position + mac.Length).ToArray();
+            int totalSize = 4 + 8 + 4 * 7 + 1 + idBytes.Length + mac.Length;
+            var span = new byte[totalSize];
+
+            var w = new BigEndianWriter(span);
+            w.WriteInt32((int)UDPPackets.HANDSHAKE);
+            w.WriteInt64(NextPacketId());
+            w.WriteInt32((int)boardType);
+            w.WriteInt32((int)imuType);
+            w.WriteInt32((int)mcuType);
+            w.WriteInt32((int)magStatus);
+            w.WriteInt32((int)magStatus);
+            w.WriteInt32((int)magStatus);
+            w.WriteInt32(_protocolVersion);
+
+            // Identifier string
+            w.WriteByte((byte)idBytes.Length);
+            idBytes.CopyTo(span.AsSpan(w.Position));
+            w.Skip(idBytes.Length);
+
+            // MAC address
+            mac.CopyTo(span.AsSpan(w.Position));
+            w.Skip(mac.Length);
+
+            return span;
         }
 
         public byte[] BuildSensorInfoPacket(ImuType imuType, TrackerPosition pos, TrackerDataType dataType, byte trackerId)
         {
-            var span = new Span<byte>(new byte[16]);
-            var writer = new BigEndianSpanWriter(span);
-            writer.WriteInt32((int)UDPPackets.SENSOR_INFO);
-            writer.WriteInt64(NextPacketId());
-            writer.WriteByte(trackerId);
-            writer.WriteByte(0); // sensor status
-            writer.WriteByte((byte)imuType);
-            writer.WriteInt16(1); // calibration state
-            writer.WriteByte((byte)pos);
-            writer.WriteByte((byte)dataType);
-            return span.Slice(0, writer.Position).ToArray();
+            var span = new byte[4 + 8 + 1 + 1 + 1 + 2 + 1 + 1];
+            var w = new BigEndianWriter(span);
+            w.WriteInt32((int)UDPPackets.SENSOR_INFO);
+            w.WriteInt64(NextPacketId());
+            w.WriteByte(trackerId);
+            w.WriteByte(0); // sensor status
+            w.WriteByte((byte)imuType);
+            w.WriteInt16(1); // calibration
+            w.WriteByte((byte)pos);
+            w.WriteByte((byte)dataType);
+            return span;
         }
     }
 }
