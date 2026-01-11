@@ -119,7 +119,7 @@ namespace SlimeImuProtocol {
         }
 
         public async Task DataTick() {
-            // Optional: add update logic if needed.
+            // What do?
         }
 
         public void Dispose() {
