@@ -125,7 +125,7 @@ namespace SlimeImuProtocol.SlimeVR
             writer.Write((byte)trackerId); // Tracker Id
             writer.Write((byte)0); // Sensor status
             writer.Write((byte)imuType); // imu type
-            writer.Write((short)0); // Magnetometer support
+            writer.Write((short)1); // Calibration state
             writer.Write((byte)trackerPosition); // Tracker Position
             writer.Write((byte)trackerDataType); // Tracker Data Type
             _sensorInfoStream.Position = 0;
