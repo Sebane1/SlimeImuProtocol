@@ -170,14 +170,14 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null)
             {
-                if (!QuatEqualsWithEpsilon(_lastQuaternion, rotation))
-                {
+               // if (!QuatEqualsWithEpsilon(_lastQuaternion, rotation))
+               // {
                     //_functionSequenceManager.AddFunctionToQueue(_id + "_r", async delegate
                     //{
                         await udpClient.SendAsync(packetBuilder.BuildRotationPacket(rotation, trackerId));
                     ////});
                     _lastQuaternion = rotation;
-                }
+               // }
             }
             return true;
         }
@@ -194,12 +194,12 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null)
             {
-                if (Vector3.Distance(_lastAccelerationPacket, acceleration) > 0.01f)
-                {
+                //if (Vector3.Distance(_lastAccelerationPacket, acceleration) > 0.01f)
+                //{
                     await udpClient.SendAsync(packetBuilder.BuildAccelerationPacket(acceleration, trackerId));
                     _timeSinceLastAccelerationDataPacket.Restart();
                     _lastAccelerationPacket = acceleration;
-                }
+                //}
             }
             return true;
         }
