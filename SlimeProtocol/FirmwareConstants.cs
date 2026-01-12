@@ -154,7 +154,7 @@ namespace SlimeImuProtocol.SlimeVR {
             public static int ROTATION_DATA = 17;
             public static int MAGENTOMETER_ACCURACY = 18;
 
-            public static int CALIBRATION_RESET = 21;
+            public static int BUTTON = 21;
 
             public static int FLEX_DATA_PACKET = 26;
             public static int BUTTON_PUSHED = 60;
