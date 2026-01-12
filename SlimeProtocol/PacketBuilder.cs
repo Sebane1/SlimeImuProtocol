@@ -22,12 +22,11 @@ namespace SlimeImuProtocol.SlimeVR
         private readonly byte[] _batteryBuffer = new byte[4 + 8 + 4 + 4];
         private readonly byte[] _hapticBuffer = new byte[4 + 3 + 4 + 4 + 1];
 
-        public byte[] HeartBeat;
+        private byte[] _heartBeat = new byte[4 + 8 + 1];
 
         public PacketBuilder(string fwString)
         {
             _identifierString = fwString;
-            HeartBeat = CreateHeartBeat();
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -37,57 +36,14 @@ namespace SlimeImuProtocol.SlimeVR
             return _packetId++;
         }
 
-        ref struct BigEndianWriter
+        public ReadOnlyMemory<byte> CreateHeartBeat()
         {
-            private Span<byte> _span;
-            private int _pos;
-
-            public BigEndianWriter(Span<byte> span)
-            {
-                _span = span;
-                _pos = 0;
-            }
-
-            public void SetPosition(int pos) => _pos = pos;
-
-            public void WriteByte(byte value) => _span[_pos++] = value;
-
-            public void WriteInt16(short value)
-            {
-                BinaryPrimitives.WriteInt16BigEndian(_span.Slice(_pos, 2), value);
-                _pos += 2;
-            }
-
-            public void WriteInt32(int value)
-            {
-                BinaryPrimitives.WriteInt32BigEndian(_span.Slice(_pos, 4), value);
-                _pos += 4;
-            }
-
-            public void WriteInt64(long value)
-            {
-                BinaryPrimitives.WriteInt64BigEndian(_span.Slice(_pos, 8), value);
-                _pos += 8;
-            }
-
-            public void WriteSingle(float value)
-            {
-                BinaryPrimitives.WriteSingleBigEndian(_span.Slice(_pos, 4), value);
-                _pos += 4;
-            }
-
-            public void Skip(int count) => _pos += count;
-
-            public int Position => _pos;
-        }
-
-        private byte[] CreateHeartBeat()
-        {
-            var w = new BigEndianWriter(HeartBeat = new byte[4 + 8 + 1]);
+            var w = new BigEndianWriter(_heartBeat);
+            w.SetPosition(0);
             w.WriteInt32((int)UDPPackets.HEARTBEAT); // Header
             w.WriteInt64(NextPacketId()); // Packet counter
             w.WriteByte(0); // Tracker Id
-            return HeartBeat;
+            return _heartBeat.AsMemory(0, w.Position);
         }
 
         public ReadOnlyMemory<byte> BuildRotationPacket(Quaternion r, byte trackerId)
@@ -119,7 +75,6 @@ namespace SlimeImuProtocol.SlimeVR
             return _accelerationBuffer.AsMemory(0, w.Position);
         }
 
-        // ------------------- Gyro Packet -------------------
         public ReadOnlyMemory<byte> BuildGyroPacket(Vector3 g, byte trackerId)
         {
             var w = new BigEndianWriter(_gyroBuffer);
@@ -196,7 +151,6 @@ namespace SlimeImuProtocol.SlimeVR
             return _hapticBuffer.AsMemory(0, w.Position);
         }
 
-        // ------------------- Handshake Packet -------------------
         public byte[] BuildHandshakePacket(BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magStatus, byte[] mac)
         {
             var idBytes = System.Text.Encoding.UTF8.GetBytes(_identifierString);
@@ -226,7 +180,6 @@ namespace SlimeImuProtocol.SlimeVR
             return span;
         }
 
-        // ------------------- Sensor Info -------------------
         public byte[] BuildSensorInfoPacket(ImuType imuType, TrackerPosition pos, TrackerDataType dataType, byte trackerId)
         {
             var span = new byte[4 + 8 + 1 + 1 + 1 + 2 + 1 + 1];
