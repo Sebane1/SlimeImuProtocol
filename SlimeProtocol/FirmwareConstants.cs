@@ -4,10 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SlimeImuProtocol.SlimeVR {
-    public static class FirmwareConstants {
+namespace SlimeImuProtocol.SlimeVR
+{
+    public static class FirmwareConstants
+    {
 
-        public enum BoardType {
+        public enum BoardType
+        {
             UNKNOWN = 0,
             SLIMEVR_LEGACY = 1,
             SLIMEVR_DEV = 2,
@@ -30,7 +33,8 @@ namespace SlimeImuProtocol.SlimeVR {
             DEV_RESERVED = 250
         }
 
-        public enum ImuType {
+        public enum ImuType
+        {
             UNKNOWN = 0,
             MPU9250 = 1,
             MPU6500 = 2,
@@ -49,7 +53,8 @@ namespace SlimeImuProtocol.SlimeVR {
             LSM6DSR = 15,
             DEV_RESERVED = 250
         }
-        public enum McuType {
+        public enum McuType
+        {
             UNKNOWN = 0,
             ESP8266 = 1,
             ESP32 = 2,
@@ -61,26 +66,39 @@ namespace SlimeImuProtocol.SlimeVR {
             HARITORA = 8,
             DEV_RESERVED = 250
         }
-        public enum MagnetometerStatus {
+        public enum MagnetometerStatus
+        {
             NOT_SUPPORTED,
             DISABLED,
             ENABLED
         }
 
-        public enum TrackerDataType {
+        public enum TrackerDataType
+        {
             ROTATION = 0,
             FLEX_RESISTANCE = 1,
             FLEX_ANGLE = 2
         }
 
-        public enum UserActionType : byte {
+        public enum UserActionType : byte
+        {
             RESET_FULL = 2,
             RESET_YAW = 3,
             RESET_MOUNTING = 4,
-            PAUSE_TRACKING = 5
+            PAUSE_TRACKING = 5,
+            THUMBSTICK = 6,
+            TRIGGER = 7,
+            GRIP = 8,
+            BUTTON_1 = 9,
+            BUTTON_2 = 10,
+            MENU_RECENTER = 11,
+            STICK_X = 12,
+            STICK_Y = 13,
+            STICK_CLICK = 14,
         }
 
-        public enum TrackerPosition {
+        public enum TrackerPosition
+        {
             NONE = 0,
             HEAD = 1,
             NECK = 2,
@@ -133,7 +151,8 @@ namespace SlimeImuProtocol.SlimeVR {
             RIGHT_LITTLE_INTERMEDIATE = 49,
             RIGHT_LITTLE_DISTAL = 50
         }
-        public class UDPPackets {
+        public class UDPPackets
+        {
             public static int HEARTBEAT = 0;
             public static int ROTATION = 1;
             public static int GYRO = 2;
@@ -168,6 +187,8 @@ namespace SlimeImuProtocol.SlimeVR {
             public static int RECIEVE_HANDSHAKE = 3;
             public static int RECIEVE_COMMAND = 4;
             public static int BUNDLE = 100;
+
+            public static int THUMBSTICK = 67;
         }
 
     }

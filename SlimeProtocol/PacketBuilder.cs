@@ -15,6 +15,7 @@ namespace SlimeImuProtocol.SlimeVR
         // Pre-allocated buffers for reuse
         private readonly byte[] _rotationBuffer = new byte[4 + 8 + 1 + 1 + 16 + 1];
         private readonly byte[] _accelerationBuffer = new byte[4 + 8 + 12 + 1];
+        private readonly byte[] _analogueStickBuffer = new byte[4 + 8 + 8 + 1];
         private readonly byte[] _gyroBuffer = new byte[4 + 8 + 1 + 1 + 12 + 1];
         private readonly byte[] _magnetometerBuffer = new byte[4 + 8 + 1 + 1 + 12 + 1];
         private readonly byte[] _flexDataBuffer = new byte[4 + 8 + 1 + 4];
@@ -37,50 +38,6 @@ namespace SlimeImuProtocol.SlimeVR
             return _packetId++;
         }
 
-        ref struct BigEndianWriter
-        {
-            private Span<byte> _span;
-            private int _pos;
-
-            public BigEndianWriter(Span<byte> span)
-            {
-                _span = span;
-                _pos = 0;
-            }
-
-            public void SetPosition(int pos) => _pos = pos;
-
-            public void WriteByte(byte value) => _span[_pos++] = value;
-
-            public void WriteInt16(short value)
-            {
-                BinaryPrimitives.WriteInt16BigEndian(_span.Slice(_pos, 2), value);
-                _pos += 2;
-            }
-
-            public void WriteInt32(int value)
-            {
-                BinaryPrimitives.WriteInt32BigEndian(_span.Slice(_pos, 4), value);
-                _pos += 4;
-            }
-
-            public void WriteInt64(long value)
-            {
-                BinaryPrimitives.WriteInt64BigEndian(_span.Slice(_pos, 8), value);
-                _pos += 8;
-            }
-
-            public void WriteSingle(float value)
-            {
-                BinaryPrimitives.WriteSingleBigEndian(_span.Slice(_pos, 4), value);
-                _pos += 4;
-            }
-
-            public void Skip(int count) => _pos += count;
-
-            public int Position => _pos;
-        }
-
         private byte[] CreateHeartBeat()
         {
             var w = new BigEndianWriter(HeartBeat = new byte[4 + 8 + 1]);
@@ -90,7 +47,7 @@ namespace SlimeImuProtocol.SlimeVR
             return HeartBeat;
         }
 
-        public ReadOnlyMemory<byte> BuildRotationPacket(Quaternion r, byte trackerId)
+        public ReadOnlyMemory<byte> BuildRotationPacket(Quaternion rotation, byte trackerId)
         {
             var w = new BigEndianWriter(_rotationBuffer);
             w.SetPosition(0);
@@ -98,29 +55,39 @@ namespace SlimeImuProtocol.SlimeVR
             w.WriteInt64(NextPacketId()); // Packet counter
             w.WriteByte(trackerId); // Tracker id
             w.WriteByte(1); // Data type
-            w.WriteSingle(r.X); // Quaternion X
-            w.WriteSingle(r.Y); // Quaternion Y
-            w.WriteSingle(r.Z); // Quaternion Z
-            w.WriteSingle(r.W); // Quaternion W
+            w.WriteSingle(rotation.X); // Quaternion X
+            w.WriteSingle(rotation.Y); // Quaternion Y
+            w.WriteSingle(rotation.Z); // Quaternion Z
+            w.WriteSingle(rotation.W); // Quaternion W
             w.WriteByte(0); // Calibration Info
             return _rotationBuffer.AsMemory(0, w.Position);
         }
 
-        public ReadOnlyMemory<byte> BuildAccelerationPacket(Vector3 a, byte trackerId)
+        public ReadOnlyMemory<byte> BuildAccelerationPacket(Vector3 acceleration, byte trackerId)
         {
             var w = new BigEndianWriter(_accelerationBuffer);
             w.SetPosition(0);
             w.WriteInt32((int)UDPPackets.ACCELERATION); // Header
             w.WriteInt64(NextPacketId()); // Packet counter
-            w.WriteSingle(a.X); // Euler X
-            w.WriteSingle(a.Y); // Euler Y
-            w.WriteSingle(a.Z); // Euler Z
+            w.WriteSingle(acceleration.X); // Euler X
+            w.WriteSingle(acceleration.Y); // Euler Y
+            w.WriteSingle(acceleration.Z); // Euler Z
+            w.WriteByte(trackerId); // Tracker id
+            return _accelerationBuffer.AsMemory(0, w.Position);
+        }
+        public ReadOnlyMemory<byte> BuildThumbstickPacket(Vector2 _analogueStick, byte trackerId)
+        {
+            var w = new BigEndianWriter(_analogueStickBuffer);
+            w.SetPosition(0);
+            w.WriteInt32((int)UDPPackets.THUMBSTICK); // Header
+            w.WriteInt64(NextPacketId()); // Packet counter
+            w.WriteSingle(_analogueStick.X); // Analogue X
+            w.WriteSingle(_analogueStick.Y); // Analogue Y
             w.WriteByte(trackerId); // Tracker id
             return _accelerationBuffer.AsMemory(0, w.Position);
         }
 
-        // ------------------- Gyro Packet -------------------
-        public ReadOnlyMemory<byte> BuildGyroPacket(Vector3 g, byte trackerId)
+        public ReadOnlyMemory<byte> BuildGyroPacket(Vector3 gyro, byte trackerId)
         {
             var w = new BigEndianWriter(_gyroBuffer);
             w.SetPosition(0);
@@ -128,9 +95,9 @@ namespace SlimeImuProtocol.SlimeVR
             w.WriteInt64(NextPacketId()); // Packet counter
             w.WriteByte(trackerId); // Tracker id
             w.WriteByte(1); // Data type 
-            w.WriteSingle(g.X); // Euler X
-            w.WriteSingle(g.Y); // Euler Y
-            w.WriteSingle(g.Z); // Euler Z
+            w.WriteSingle(gyro.X); // Euler X
+            w.WriteSingle(gyro.Y); // Euler Y
+            w.WriteSingle(gyro.Z); // Euler Z
             w.WriteByte(0); // Calibration Info
             return _gyroBuffer.AsMemory(0, w.Position);
         }
@@ -196,7 +163,6 @@ namespace SlimeImuProtocol.SlimeVR
             return _hapticBuffer.AsMemory(0, w.Position);
         }
 
-        // ------------------- Handshake Packet -------------------
         public byte[] BuildHandshakePacket(BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magStatus, byte[] mac)
         {
             var idBytes = System.Text.Encoding.UTF8.GetBytes(_identifierString);
@@ -226,7 +192,6 @@ namespace SlimeImuProtocol.SlimeVR
             return span;
         }
 
-        // ------------------- Sensor Info -------------------
         public byte[] BuildSensorInfoPacket(ImuType imuType, TrackerPosition pos, TrackerDataType dataType, byte trackerId)
         {
             var span = new byte[4 + 8 + 1 + 1 + 1 + 2 + 1 + 1];
