@@ -137,7 +137,7 @@ namespace SlimeImuProtocol.SlimeVR
                     {
                         if (udpClient != null)
                         {
-                            await udpClient.SendAsync(packetBuilder.HeartBeat);
+                            await udpClient.SendAsync(packetBuilder.CreateHeartBeat());
                         }
                     }
                     await Task.Delay(900); // At least 1 time per second (<1000ms)

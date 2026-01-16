@@ -23,12 +23,11 @@ namespace SlimeImuProtocol.SlimeVR
         private readonly byte[] _batteryBuffer = new byte[4 + 8 + 4 + 4];
         private readonly byte[] _hapticBuffer = new byte[4 + 3 + 4 + 4 + 1];
 
-        public byte[] HeartBeat;
+        private byte[] _heartBeat = new byte[4 + 8 + 1];
 
         public PacketBuilder(string fwString)
         {
             _identifierString = fwString;
-            HeartBeat = CreateHeartBeat();
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -38,13 +37,14 @@ namespace SlimeImuProtocol.SlimeVR
             return _packetId++;
         }
 
-        private byte[] CreateHeartBeat()
+        public ReadOnlyMemory<byte> CreateHeartBeat()
         {
-            var w = new BigEndianWriter(HeartBeat = new byte[4 + 8 + 1]);
+            var w = new BigEndianWriter(_heartBeat);
+            w.SetPosition(0);
             w.WriteInt32((int)UDPPackets.HEARTBEAT); // Header
             w.WriteInt64(NextPacketId()); // Packet counter
             w.WriteByte(0); // Tracker Id
-            return HeartBeat;
+            return _heartBeat.AsMemory(0, w.Position);
         }
 
         public ReadOnlyMemory<byte> BuildRotationPacket(Quaternion rotation, byte trackerId)
