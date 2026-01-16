@@ -1,8 +1,8 @@
-﻿using Everything_To_IMU_SlimeVR.Tracking;
-using Google.FlatBuffers;
-using ImuToXInput;
+﻿using Google.FlatBuffers;
 using LucHeart.CoreOSC;
 using SlimeImuProtocol;
+using SlimeImuProtocol.SlimeProtocol;
+using SlimeImuProtocol.Utility;
 using solarxr_protocol;
 using solarxr_protocol.data_feed;
 using solarxr_protocol.data_feed.device_data;

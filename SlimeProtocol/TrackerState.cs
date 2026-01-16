@@ -1,4 +1,4 @@
-﻿using Everything_To_IMU_SlimeVR.Tracking;
+﻿using SlimeImuProtocol.Utility;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,7 +6,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ImuToXInput
+namespace SlimeImuProtocol.SlimeProtocol
 {
     public static class TrackingEnvironment
     {

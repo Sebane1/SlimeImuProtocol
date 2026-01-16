@@ -1,6 +1,6 @@
 using System.Numerics;
 
-namespace Everything_To_IMU_SlimeVR.Tracking
+namespace SlimeImuProtocol.Utility
 {
     public static class CoordinateUtility
     {
