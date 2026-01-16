@@ -54,7 +54,7 @@ namespace SlimeImuProtocol {
 
         public Tracker(TrackerDevice device, int trackerNum, string name, string displayName, bool hasRotation, bool hasAcceleration,
             bool userEditable, ImuType imuType, bool allowFiltering, bool needsReset,
-            bool needsMounting, bool usesTimeout, MagnetometerStatus magStatus, FunctionSequenceManager functionSequenceManager) {
+            bool needsMounting, bool usesTimeout, MagnetometerStatus magStatus) {
             TrackerNum = trackerNum;
             Name = name;
             DisplayName = displayName;
@@ -67,14 +67,13 @@ namespace SlimeImuProtocol {
             NeedsMounting = needsMounting;
             UsesTimeout = usesTimeout;
             MagStatus = magStatus;
-            _functionSequenceManager = functionSequenceManager;
             Task.Run(() => {
                 while (device.FirmwareVersion == null) {
                     Thread.Sleep(1000);
                 }
                 _udpHandler = new UDPHandler(device.FirmwareVersion + "_EsbToLan", 
                  Encoding.UTF8.GetBytes(device.HardwareIdentifier), device.BoardType, 
-                 ImuType, device.McuType, MagStatus, 1, _functionSequenceManager);
+                 ImuType, device.McuType, MagStatus, 1);
                 _ready = true;
             });
         }
@@ -88,8 +87,7 @@ namespace SlimeImuProtocol {
                     ImuType,
                     McuType,
                     MagStatus,
-                    1,
-                    _functionSequenceManager
+                    1
                 );
                 _ready = true;
             }

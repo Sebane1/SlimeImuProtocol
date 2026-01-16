@@ -28,13 +28,12 @@ namespace SlimeImuProtocol.SlimeVR
         private EventHandler forceHandShakeDelegate;
         private Vector3 _lastAccelerationPacket;
         private Quaternion _lastQuaternion;
-        private FunctionSequenceManager _functionSequenceManager;
 
         public bool Active { get => _active; set => _active = value; }
         public static string Endpoint { get => _endpoint; set => _endpoint = value; }
         public static bool HandshakeOngoing { get => _handshakeOngoing; }
 
-        public UDPHandler(string firmware, byte[] hardwareAddress, BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magnetometerStatus, int supportedSensorCount, FunctionSequenceManager functionSequenceManager)
+        public UDPHandler(string firmware, byte[] hardwareAddress, BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magnetometerStatus, int supportedSensorCount)
         {
             _id = Guid.NewGuid().ToString();
             _hardwareAddress = hardwareAddress;
@@ -52,7 +51,6 @@ namespace SlimeImuProtocol.SlimeVR
             };
             OnForceHandshake += forceHandShakeDelegate;
             OnForceDestroy += UDPHandler_OnForceDestroy;
-            _functionSequenceManager = functionSequenceManager;
         }
 
         private void UDPHandler_OnForceDestroy(object? sender, EventArgs e)
@@ -199,10 +197,7 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null)
             {
-                _functionSequenceManager.AddFunctionToQueue(_id + "_g", async delegate
-                {
-                    await udpClient.SendAsync(packetBuilder.BuildGyroPacket(gyro, trackerId));
-                });
+                await udpClient.SendAsync(packetBuilder.BuildGyroPacket(gyro, trackerId));
             }
             return true;
         }
@@ -210,10 +205,7 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null)
             {
-                _functionSequenceManager.AddFunctionToQueue(_id + "_f", async delegate
-                {
-                    await udpClient.SendAsync(packetBuilder.BuildFlexDataPacket(flexResistance, trackerId));
-                });
+                await udpClient.SendAsync(packetBuilder.BuildFlexDataPacket(flexResistance, trackerId));
             }
             return true;
         }
@@ -221,10 +213,7 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null)
             {
-                _functionSequenceManager.AddFunctionToQueue(_id + "_b", async delegate
-                {
-                    await udpClient.SendAsync(packetBuilder.BuildButtonPushedPacket(userActionType));
-                });
+                await udpClient.SendAsync(packetBuilder.BuildButtonPushedPacket(userActionType));
             }
             return true;
         }
@@ -233,10 +222,7 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null)
             {
-                _functionSequenceManager.AddFunctionToQueue(_id + "_p", async delegate
-                {
-                    await udpClient.SendAsync(packet);
-                });
+                await udpClient.SendAsync(packet);
             }
             return true;
         }
