@@ -193,6 +193,34 @@ namespace SlimeImuProtocol.SlimeVR
             }
             return true;
         }
+
+        public async Task<bool> SetThumbstick(Vector2 analogueThumbstick, byte trackerId)
+        {
+            if (udpClient != null)
+            {
+                await udpClient.SendAsync(packetBuilder.BuildThumbstickPacket(analogueThumbstick, trackerId));
+            }
+            return true;
+        }
+
+        public async Task<bool> SetTrigger(float triggerAnalogue, byte trackerId)
+        {
+            if (udpClient != null)
+            {
+                await udpClient.SendAsync(packetBuilder.BuildTriggerAnaloguePacket(triggerAnalogue, trackerId));
+            }
+            return true;
+        }
+
+        public async Task<bool> SetGrip(float gripAnalogue, byte trackerId)
+        {
+            if (udpClient != null)
+            {
+                await udpClient.SendAsync(packetBuilder.BuildGripAnaloguePacket(gripAnalogue, trackerId));
+            }
+            return true;
+        }
+
         public async Task<bool> SetSensorGyro(Vector3 gyro, byte trackerId)
         {
             if (udpClient != null)
@@ -214,6 +242,14 @@ namespace SlimeImuProtocol.SlimeVR
             if (udpClient != null)
             {
                 await udpClient.SendAsync(packetBuilder.BuildButtonPushedPacket(userActionType));
+            }
+            return true;
+        }
+        public async Task<bool> SendControllerButton(ControllerButton userActionType, byte trackerId)
+        {
+            if (udpClient != null)
+            {
+                await udpClient.SendAsync(packetBuilder.BuildControllerButtonPushedPacket(userActionType, trackerId));
             }
             return true;
         }
@@ -294,6 +330,22 @@ namespace SlimeImuProtocol.SlimeVR
             catch
             {
 
+            }
+        }
+
+        public void SendTrigger(float trigger, byte trackerId)
+        {
+            if (udpClient != null)
+            {
+                packetBuilder.BuildTriggerAnaloguePacket(trigger, trackerId);
+            }
+        }
+
+        public void SendGrip(float grip, byte trackerId)
+        {
+            if (udpClient != null)
+            {
+                packetBuilder.BuildGripAnaloguePacket(grip, trackerId);
             }
         }
     }

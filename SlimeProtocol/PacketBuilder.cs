@@ -15,13 +15,17 @@ namespace SlimeImuProtocol.SlimeVR
         // Pre-allocated buffers for reuse
         private readonly byte[] _rotationBuffer = new byte[4 + 8 + 1 + 1 + 16 + 1];
         private readonly byte[] _accelerationBuffer = new byte[4 + 8 + 12 + 1];
-        private readonly byte[] _analogueStickBuffer = new byte[4 + 8 + 8 + 1];
+        private readonly byte[] _analogueStickBuffer = new byte[4 + 8 + 12 + 1];
+        private readonly byte[] _analogueTouchpadBuffer = new byte[4 + 8 + 12 + 1];
         private readonly byte[] _gyroBuffer = new byte[4 + 8 + 1 + 1 + 12 + 1];
         private readonly byte[] _magnetometerBuffer = new byte[4 + 8 + 1 + 1 + 12 + 1];
         private readonly byte[] _flexDataBuffer = new byte[4 + 8 + 1 + 4];
         private readonly byte[] _buttonBuffer = new byte[4 + 8 + 1];
         private readonly byte[] _batteryBuffer = new byte[4 + 8 + 4 + 4];
         private readonly byte[] _hapticBuffer = new byte[4 + 3 + 4 + 4 + 1];
+        private readonly byte[] _controllerButtonBuffer = new byte[4 + 8 + 1 + 1];
+        private readonly byte[] _triggerAnalogueBuffer = new byte[4 + 8 + 4 + 1];
+        private readonly byte[] _gripAnalogueBuffer = new byte[4 + 8 + 4 + 1];
 
         private byte[] _heartBeat = new byte[4 + 8 + 1];
 
@@ -33,7 +37,10 @@ namespace SlimeImuProtocol.SlimeVR
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         private long NextPacketId()
         {
-            if (_packetId >= long.MaxValue) _packetId = 0;
+            if (_packetId >= long.MaxValue)
+            {
+                _packetId = 0;
+            }
             return _packetId++;
         }
 
@@ -83,8 +90,22 @@ namespace SlimeImuProtocol.SlimeVR
             w.WriteInt64(NextPacketId()); // Packet counter
             w.WriteSingle(_analogueStick.X); // Analogue X
             w.WriteSingle(_analogueStick.Y); // Analogue Y
+            w.WriteSingle(0); // Analogue Z (Unused)
             w.WriteByte(trackerId); // Tracker id
-            return _accelerationBuffer.AsMemory(0, w.Position);
+            return _analogueStickBuffer.AsMemory(0, w.Position);
+        }
+
+        public ReadOnlyMemory<byte> BuildTouchpadPacket(Vector2 _analogueTouchpad, byte trackerId)
+        {
+            var w = new BigEndianWriter(_analogueTouchpadBuffer);
+            w.SetPosition(0);
+            w.WriteInt32((int)UDPPackets.THUMBSTICK); // Header
+            w.WriteInt64(NextPacketId()); // Packet counter
+            w.WriteSingle(_analogueTouchpad.X); // Analogue X
+            w.WriteSingle(_analogueTouchpad.Y); // Analogue Y
+            w.WriteSingle(0); // Analogue Z (Unused)
+            w.WriteByte(trackerId); // Tracker id
+            return _analogueTouchpadBuffer.AsMemory(0, w.Position);
         }
 
         public ReadOnlyMemory<byte> BuildGyroPacket(Vector3 gyro, byte trackerId)
@@ -132,7 +153,7 @@ namespace SlimeImuProtocol.SlimeVR
         {
             var w = new BigEndianWriter(_buttonBuffer);
             w.SetPosition(0);
-            w.WriteInt32((int)UDPPackets.BUTTON); // Header
+            w.WriteInt32((int)UDPPackets.CALIBRATION_ACTION); // Header
             w.WriteInt64(NextPacketId()); // Packet counter
             w.WriteByte((byte)action); // Action type
             return _buttonBuffer.AsMemory(0, w.Position);
@@ -206,6 +227,39 @@ namespace SlimeImuProtocol.SlimeVR
             w.WriteByte((byte)pos);  // Tracker Position
             w.WriteByte((byte)dataType);  // Tracker Data Type
             return span;
+        }
+
+        public ReadOnlyMemory<byte> BuildControllerButtonPushedPacket(ControllerButton action, byte trackerId)
+        {
+            var w = new BigEndianWriter(_controllerButtonBuffer);
+            w.SetPosition(0);
+            w.WriteInt32((int)UDPPackets.CONTROLLER_BUTTON); // Header
+            w.WriteInt64(NextPacketId()); // Packet counter
+            w.WriteByte((byte)action); // Action type
+            w.WriteByte(trackerId); // Tracker id
+            return _controllerButtonBuffer.AsMemory(0, w.Position);
+        }
+
+        public ReadOnlyMemory<byte> BuildTriggerAnaloguePacket(float triggerAnalogue, byte trackerId)
+        {
+            var w = new BigEndianWriter(_triggerAnalogueBuffer);
+            w.SetPosition(0);
+            w.WriteInt32((int)UDPPackets.TRIGGER); // Header
+            w.WriteInt64(NextPacketId()); // Packet counter
+            w.WriteSingle(triggerAnalogue); // Euler X
+            w.WriteByte(trackerId); // Tracker id
+            return _triggerAnalogueBuffer.AsMemory(0, w.Position);
+        }
+
+        public ReadOnlyMemory<byte> BuildGripAnaloguePacket(float gripAnalogue, byte trackerId)
+        {
+            var w = new BigEndianWriter(_gripAnalogueBuffer);
+            w.SetPosition(0);
+            w.WriteInt32((int)UDPPackets.GRIP); // Header
+            w.WriteInt64(NextPacketId()); // Packet counter
+            w.WriteSingle(gripAnalogue); // Euler X
+            w.WriteByte(trackerId); // Tracker id
+            return _gripAnalogueBuffer.AsMemory(0, w.Position);
         }
     }
 }
