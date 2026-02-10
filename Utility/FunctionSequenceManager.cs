@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace SlimeImuProtocol
+namespace SlimeImuProtocol.Utility
 {
     public class FunctionSequenceManager
     {

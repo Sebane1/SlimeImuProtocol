@@ -1,9 +1,10 @@
 ﻿using SlimeImuProtocol.SlimeVR;
+using SlimeImuProtocol.Utility;
 using System.Numerics;
 using System.Text;
 using static SlimeImuProtocol.SlimeVR.FirmwareConstants;
 
-namespace SlimeImuProtocol {
+namespace SlimeImuProtocol.SlimeProtocol {
     public class Tracker : IDisposable {
         public int TrackerNum { get; set; }
         public string Name { get; set; }

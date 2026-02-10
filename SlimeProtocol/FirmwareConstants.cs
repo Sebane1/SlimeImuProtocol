@@ -86,15 +86,20 @@ namespace SlimeImuProtocol.SlimeVR
             RESET_YAW = 3,
             RESET_MOUNTING = 4,
             PAUSE_TRACKING = 5,
-            THUMBSTICK = 6,
-            TRIGGER = 7,
-            GRIP = 8,
-            BUTTON_1 = 9,
-            BUTTON_2 = 10,
-            MENU_RECENTER = 11,
-            STICK_X = 12,
-            STICK_Y = 13,
-            STICK_CLICK = 14,
+        }
+
+        public enum ControllerButton : byte
+        {
+            BUTTON_1_HELD = 1,
+            BUTTON_1_UNHELD = 2,
+            BUTTON_2_HELD = 3,
+            BUTTON_2_UNHELD = 4,
+            MENU_RECENTER_HELD = 5,
+            MENU_RECENTER_UNHELD = 6,
+            STICK_CLICK_HELD = 7,
+            STICK_CLICK_UNHELD = 8,
+            TRACKPAD_CLICK_HELD = 9,
+		    TRACKPAD_CLICK_UNHELD = 10
         }
 
         public enum TrackerPosition
@@ -173,7 +178,7 @@ namespace SlimeImuProtocol.SlimeVR
             public static int ROTATION_DATA = 17;
             public static int MAGENTOMETER_ACCURACY = 18;
 
-            public static int BUTTON = 21;
+            public static int CALIBRATION_ACTION = 21;
 
             public static int FLEX_DATA_PACKET = 26;
             public static int BUTTON_PUSHED = 60;
@@ -188,7 +193,10 @@ namespace SlimeImuProtocol.SlimeVR
             public static int RECIEVE_COMMAND = 4;
             public static int BUNDLE = 100;
 
+            public static int CONTROLLER_BUTTON = 66;
             public static int THUMBSTICK = 67;
+            public static int TRIGGER = 68;
+            public static int GRIP = 69;
         }
 
     }
