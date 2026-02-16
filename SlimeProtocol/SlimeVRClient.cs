@@ -1,4 +1,4 @@
-﻿using Google.FlatBuffers;
+using Google.FlatBuffers;
 using LucHeart.CoreOSC;
 using SlimeImuProtocol;
 using SlimeImuProtocol.SlimeProtocol;
@@ -300,9 +300,23 @@ public class SlimeVRClient
                 }
             }
         }
+        ProcessRpcMessages(messageBundle);
         NewDataReceived?.Invoke(this, EventArgs.Empty);
     }
 
+    private void ProcessRpcMessages(MessageBundle messageBundle)
+    {
+        if (messageBundle.RpcMsgsLength == 0) return;
+        for (var i = 0; i < messageBundle.RpcMsgsLength; ++i)
+        {
+            var rpcMsg = messageBundle.RpcMsgs(i);
+            if (!rpcMsg.HasValue) continue;
+            if (rpcMsg.Value.MessageType != RpcMessage.ResetResponse) continue;
+            var resetResponse = rpcMsg.Value.MessageAsResetResponse();
+            if (resetResponse.Status != ResetStatus.FINISHED) continue;
+            _trackers.Clear();
+        }
+    }
 
     string Ipv4ToString(uint addr)
     {
@@ -333,7 +347,8 @@ public class SlimeVRClient
                     eulerCalibration = localRotation.QuaternionToEuler();
                     positionCalibration = position;
                     rotationCalibration = rotation;
-                } else
+                }
+                else
                 {
                     eulerCalibration = _trackers[bodyPart].EulerCalibration;
                     positionCalibration = _trackers[bodyPart].PositionCalibration;
