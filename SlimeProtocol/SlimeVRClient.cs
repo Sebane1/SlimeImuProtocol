@@ -314,6 +314,7 @@ public class SlimeVRClient
             if (rpcMsg.Value.MessageType != RpcMessage.ResetResponse) continue;
             var resetResponse = rpcMsg.Value.MessageAsResetResponse();
             if (resetResponse.Status != ResetStatus.FINISHED) continue;
+            Console.WriteLine("Reset Detected");
             _trackers.Clear();
         }
     }
