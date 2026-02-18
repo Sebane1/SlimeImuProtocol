@@ -34,6 +34,8 @@ public class SlimeVRClient
     public DataFeedUpdate? Skeleton { get; private set; }
     public Transform SkeletonToCameraTransform { get; private set; }
     public Dictionary<string, TrackerState> Trackers { get => _trackers; set => _trackers = value; }
+    /// <summary>Fired when a tracker reset completes (ResetResponse with FINISHED status).</summary>
+    public event EventHandler? TrackerResetDetected;
     public bool UsesSkeletalRotation { get; set; } = true;
 
     private readonly Uri serverUri = new("ws://localhost:21110");
@@ -316,6 +318,7 @@ public class SlimeVRClient
             if (resetResponse.Status != ResetStatus.FINISHED) continue;
             Console.WriteLine("Reset Detected");
             _trackers.Clear();
+            TrackerResetDetected?.Invoke(this, EventArgs.Empty);
         }
     }
 
