@@ -1,4 +1,4 @@
-﻿using Google.FlatBuffers;
+using Google.FlatBuffers;
 using LucHeart.CoreOSC;
 using SlimeImuProtocol;
 using SlimeImuProtocol.SlimeProtocol;
@@ -34,6 +34,8 @@ public class SlimeVRClient
     public DataFeedUpdate? Skeleton { get; private set; }
     public Transform SkeletonToCameraTransform { get; private set; }
     public Dictionary<string, TrackerState> Trackers { get => _trackers; set => _trackers = value; }
+    /// <summary>Fired when a tracker reset completes (ResetResponse with FINISHED status).</summary>
+    public event EventHandler? TrackerResetDetected;
     public bool UsesSkeletalRotation { get; set; } = true;
 
     private readonly Uri serverUri = new("ws://localhost:21110");
@@ -300,9 +302,25 @@ public class SlimeVRClient
                 }
             }
         }
+        ProcessRpcMessages(messageBundle);
         NewDataReceived?.Invoke(this, EventArgs.Empty);
     }
 
+    private void ProcessRpcMessages(MessageBundle messageBundle)
+    {
+        if (messageBundle.RpcMsgsLength == 0) return;
+        for (var i = 0; i < messageBundle.RpcMsgsLength; ++i)
+        {
+            var rpcMsg = messageBundle.RpcMsgs(i);
+            if (!rpcMsg.HasValue) continue;
+            if (rpcMsg.Value.MessageType != RpcMessage.ResetResponse) continue;
+            var resetResponse = rpcMsg.Value.MessageAsResetResponse();
+            if (resetResponse.Status != ResetStatus.FINISHED) continue;
+            Console.WriteLine("Reset Detected");
+            _trackers.Clear();
+            TrackerResetDetected?.Invoke(this, EventArgs.Empty);
+        }
+    }
 
     string Ipv4ToString(uint addr)
     {
@@ -333,7 +351,8 @@ public class SlimeVRClient
                     eulerCalibration = localRotation.QuaternionToEuler();
                     positionCalibration = position;
                     rotationCalibration = rotation;
-                } else
+                }
+                else
                 {
                     eulerCalibration = _trackers[bodyPart].EulerCalibration;
                     positionCalibration = _trackers[bodyPart].PositionCalibration;
