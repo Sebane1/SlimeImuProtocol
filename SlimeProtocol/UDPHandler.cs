@@ -102,16 +102,31 @@ namespace SlimeImuProtocol.SlimeVR
 
                     if (disposed) break;
 
-                    _handshakeOngoing = true;
-                    Debug.WriteLine($"[UDPHandler] Starting Handshake for {_id}...");
-                    
-                    while (!_isInitialized && _active && !disposed)
+                    try
                     {
-                        await udpClient.SendAsync(packetBuilder.BuildHandshakePacket(boardType, imuType, mcuType, magnetometerStatus, hardwareAddress));
-                        await Task.Delay(1000);
-                    }
+                        _handshakeOngoing = true;
+                        Debug.WriteLine($"[UDPHandler] Starting Handshake for {_id}...");
 
-                    _handshakeOngoing = false;
+                        while (!_isInitialized && _active && !disposed)
+                        {
+                            // Check if endpoint changed during handshake attempt
+                            if (udpClient == null || _endpoint != Endpoint)
+                            {
+                                ConfigureUdp();
+                            }
+
+                            await udpClient.SendAsync(packetBuilder.BuildHandshakePacket(boardType, imuType, mcuType, magnetometerStatus, hardwareAddress));
+                            await Task.Delay(1000);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[UDPHandler] Handshake error for {_id}: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _handshakeOngoing = false;
+                    }
 
                     if (_isInitialized)
                     {
@@ -128,6 +143,13 @@ namespace SlimeImuProtocol.SlimeVR
                             break;
                         }
                     }
+                }
+                else if (udpClient != null && _endpoint != Endpoint)
+                {
+                    // Endpoint changed after initialization, re-handshake to new target
+                    Debug.WriteLine($"[UDPHandler] Endpoint changed for {_id}. Re-configuring...");
+                    _isInitialized = false;
+                    ConfigureUdp();
                 }
 
                 // Connection persistence watchdog: 4 seconds
@@ -211,13 +233,22 @@ namespace SlimeImuProtocol.SlimeVR
 
         public void ConfigureUdp()
         {
-            if (udpClient != null)
+            try
             {
-                udpClient?.Close();
-                udpClient?.Dispose();
+                if (udpClient != null)
+                {
+                    udpClient?.Close();
+                    udpClient?.Dispose();
+                }
+                _endpoint = Endpoint; // Cache the current static endpoint locally
+                udpClient = new UdpClient();
+                udpClient.Connect(_endpoint, 6969);
+                Debug.WriteLine($"[UDPHandler] Configured UDP for {_id} -> {_endpoint}");
             }
-            udpClient = new UdpClient();
-            udpClient.Connect(_endpoint, 6969);
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[UDPHandler] ConfigureUdp error for {_id}: {ex.Message}");
+            }
         }
 
         public async Task<bool> SetSensorRotation(Quaternion rotation, byte trackerId)

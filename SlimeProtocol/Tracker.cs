@@ -1,4 +1,4 @@
-﻿using SlimeImuProtocol.SlimeVR;
+using SlimeImuProtocol.SlimeVR;
 using SlimeImuProtocol.Utility;
 using System.Numerics;
 using System.Text;
@@ -37,13 +37,12 @@ namespace SlimeImuProtocol.SlimeProtocol {
         public int SignalStrength { get; set; }
 
         public TrackerStatus Status = TrackerStatus.Disconnected;
-        public bool Disconnected { get; set; }
-
         private UDPHandler _udpHandler;
         private bool _ready;
         private float _batteryLevel;
         private Quaternion _currentRotation;
         private Vector3 _currentAcceleration;
+        private CancellationTokenSource _cts = new CancellationTokenSource();
 
         // These can be set after construction when device data is parsed
         public string FirmwareVersion { get; set; }
@@ -68,15 +67,18 @@ namespace SlimeImuProtocol.SlimeProtocol {
             NeedsMounting = needsMounting;
             UsesTimeout = usesTimeout;
             MagStatus = magStatus;
+            var token = _cts.Token;
             Task.Run(() => {
-                while (device.FirmwareVersion == null) {
+                while (device.FirmwareVersion == null && !token.IsCancellationRequested) {
                     Thread.Sleep(1000);
                 }
+                if (token.IsCancellationRequested) return;
+
                 _udpHandler = new UDPHandler(device.FirmwareVersion + "_EsbToLan", 
                  Encoding.UTF8.GetBytes(device.HardwareIdentifier), device.BoardType, 
                  ImuType, device.McuType, MagStatus, 1);
                 _ready = true;
-            });
+            }, token);
         }
 
         public void TryInitialize() {
@@ -123,6 +125,7 @@ namespace SlimeImuProtocol.SlimeProtocol {
 
         public void Dispose() {
              _ready = false;
+             _cts.Cancel();
              _udpHandler?.Dispose();
         }
     }
