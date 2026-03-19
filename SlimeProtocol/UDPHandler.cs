@@ -14,6 +14,7 @@ namespace SlimeImuProtocol.SlimeVR
         private static bool _handshakeOngoing = false;
         public static event EventHandler OnForceHandshake;
         public static event EventHandler OnForceDestroy;
+        public static event EventHandler<string> OnServerDiscovered;
         private Stopwatch _timeSinceLastQuaternionDataPacket = new Stopwatch();
         private Stopwatch _timeSinceLastAccelerationDataPacket = new Stopwatch();
         private string _id;
@@ -32,6 +33,7 @@ namespace SlimeImuProtocol.SlimeVR
         private long _lastPacketReceivedTime = DateTimeOffset.UtcNow.ToUniversalTime().ToUnixTimeMilliseconds();
         private bool _isInitialized = false;
         private CancellationTokenSource _cts = new CancellationTokenSource();
+        public bool IsDiscoveryOnly { get; set; } = false;
 
         public bool Active { get => _active; set => _active = value; }
         public static string Endpoint { get => _endpoint; set => _endpoint = value; }
@@ -118,6 +120,13 @@ namespace SlimeImuProtocol.SlimeVR
                         {
                             await udpClient.SendAsync(packetBuilder.BuildSensorInfoPacket(imuType, TrackerPosition.NONE, TrackerDataType.ROTATION, (byte)i));
                         }
+
+                        if (IsDiscoveryOnly)
+                        {
+                            Debug.WriteLine($"[UDPHandler] Discovery Only mode active. Disposing {_id}...");
+                            Dispose();
+                            break;
+                        }
                     }
                 }
 
@@ -152,9 +161,11 @@ namespace SlimeImuProtocol.SlimeVR
                     {
                         if (!_isInitialized)
                         {
-                            udpClient.Connect(result.RemoteEndPoint.Address.ToString(), 6969);
+                            _endpoint = result.RemoteEndPoint.Address.ToString();
+                            udpClient.Connect(_endpoint, 6969);
                             _isInitialized = true;
-                            Debug.WriteLine($"[UDPHandler] Got Discovery Response for {_id}");
+                            Debug.WriteLine($"[UDPHandler] Got Discovery Response for {_id}: {_endpoint}");
+                            OnServerDiscovered?.Invoke(null, _endpoint);
                         }
                         continue;
                     }
