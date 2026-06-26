@@ -115,7 +115,7 @@ namespace SlimeImuProtocol.SlimeVR
                                 ConfigureUdp();
                             }
 
-                            await udpClient.SendAsync(packetBuilder.BuildHandshakePacket(boardType, imuType, mcuType, magnetometerStatus, hardwareAddress));
+                            try { await udpClient.SendAsync(packetBuilder.BuildHandshakePacket(boardType, imuType, mcuType, magnetometerStatus, hardwareAddress)); } catch { }
                             await Task.Delay(1000);
                         }
                     }
@@ -133,7 +133,7 @@ namespace SlimeImuProtocol.SlimeVR
                         Debug.WriteLine($"[UDPHandler] Handshake Success for {_id}. Sending sensor info...");
                         for (int i = 0; i < _supportedSensorCount; i++)
                         {
-                            await udpClient.SendAsync(packetBuilder.BuildSensorInfoPacket(imuType, TrackerPosition.NONE, TrackerDataType.ROTATION, (byte)i));
+                            try { await udpClient.SendAsync(packetBuilder.BuildSensorInfoPacket(imuType, TrackerPosition.NONE, TrackerDataType.ROTATION, (byte)i)); } catch { }
                         }
 
                         if (IsDiscoveryOnly)
@@ -199,11 +199,11 @@ namespace SlimeImuProtocol.SlimeVR
 
                         if (packetType == 10) // PingPong
                         {
-                            await udpClient.SendAsync(buffer, buffer.Length); // Echo back
+                            try { await udpClient.SendAsync(buffer, buffer.Length); } catch { } // Echo back
                         }
                         else if (packetType == 1) // Server Heartbeat
                         {
-                            await udpClient.SendAsync(packetBuilder.CreateHeartBeat()); // Reply with our heartbeat
+                            try { await udpClient.SendAsync(packetBuilder.CreateHeartBeat()); } catch { } // Reply with our heartbeat
                         }
                     }
                 }
@@ -223,7 +223,7 @@ namespace SlimeImuProtocol.SlimeVR
                 {
                     try
                     {
-                        await udpClient.SendAsync(packetBuilder.CreateHeartBeat());
+                        try { await udpClient.SendAsync(packetBuilder.CreateHeartBeat()); } catch { }
                     }
                     catch { }
                 }
@@ -255,7 +255,7 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null && _isInitialized)
             {
-                await udpClient.SendAsync(packetBuilder.BuildRotationPacket(rotation, trackerId));
+                try { await udpClient.SendAsync(packetBuilder.BuildRotationPacket(rotation, trackerId)); } catch { }
                 _lastQuaternion = rotation;
             }
             return true;
@@ -274,7 +274,7 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null && _isInitialized)
             {
-                await udpClient.SendAsync(packetBuilder.BuildAccelerationPacket(acceleration, trackerId));
+                try { await udpClient.SendAsync(packetBuilder.BuildAccelerationPacket(acceleration, trackerId)); } catch { }
                 _timeSinceLastAccelerationDataPacket.Restart();
                 _lastAccelerationPacket = acceleration;
             }
@@ -285,7 +285,7 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null && _isInitialized)
             {
-                await udpClient.SendAsync(packetBuilder.BuildThumbstickPacket(analogueThumbstick, trackerId));
+                try { await udpClient.SendAsync(packetBuilder.BuildThumbstickPacket(analogueThumbstick, trackerId)); } catch { }
             }
             return true;
         }
@@ -294,7 +294,7 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null && _isInitialized)
             {
-                await udpClient.SendAsync(packetBuilder.BuildTriggerAnaloguePacket(triggerAnalogue, trackerId));
+                try { await udpClient.SendAsync(packetBuilder.BuildTriggerAnaloguePacket(triggerAnalogue, trackerId)); } catch { }
             }
             return true;
         }
@@ -303,7 +303,7 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null && _isInitialized)
             {
-                await udpClient.SendAsync(packetBuilder.BuildGripAnaloguePacket(gripAnalogue, trackerId));
+                try { await udpClient.SendAsync(packetBuilder.BuildGripAnaloguePacket(gripAnalogue, trackerId)); } catch { }
             }
             return true;
         }
@@ -312,7 +312,7 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null && _isInitialized)
             {
-                await udpClient.SendAsync(packetBuilder.BuildGyroPacket(gyro, trackerId));
+                try { await udpClient.SendAsync(packetBuilder.BuildGyroPacket(gyro, trackerId)); } catch { }
             }
             return true;
         }
@@ -320,7 +320,7 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null && _isInitialized)
             {
-                await udpClient.SendAsync(packetBuilder.BuildFlexDataPacket(flexResistance, trackerId));
+                try { await udpClient.SendAsync(packetBuilder.BuildFlexDataPacket(flexResistance, trackerId)); } catch { }
             }
             return true;
         }
@@ -328,7 +328,7 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null && _isInitialized)
             {
-                await udpClient.SendAsync(packetBuilder.BuildButtonPushedPacket(userActionType));
+                try { await udpClient.SendAsync(packetBuilder.BuildButtonPushedPacket(userActionType)); } catch { }
             }
             return true;
         }
@@ -336,7 +336,7 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null && _isInitialized)
             {
-                await udpClient.SendAsync(packetBuilder.BuildControllerButtonPushedPacket(userActionType, trackerId));
+                try { await udpClient.SendAsync(packetBuilder.BuildControllerButtonPushedPacket(userActionType, trackerId)); } catch { }
             }
             return true;
         }
@@ -345,7 +345,7 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null && _isInitialized)
             {
-                await udpClient.SendAsync(packet);
+                try { await udpClient.SendAsync(packet); } catch { }
             }
             return true;
         }
@@ -354,7 +354,7 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null && _isInitialized)
             {
-                await udpClient.SendAsync(packetBuilder.BuildBatteryLevelPacket(battery, voltage));
+                try { await udpClient.SendAsync(packetBuilder.BuildBatteryLevelPacket(battery, voltage)); } catch { }
             }
             return true;
         }
@@ -363,7 +363,7 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null && _isInitialized)
             {
-                await udpClient.SendAsync(packetBuilder.BuildMagnetometerPacket(magnetometer, trackerId));
+                try { await udpClient.SendAsync(packetBuilder.BuildMagnetometerPacket(magnetometer, trackerId)); } catch { }
             }
             return true;
         }
@@ -389,7 +389,7 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null && _isInitialized)
             {
-                _ = udpClient.SendAsync(packetBuilder.BuildTriggerAnaloguePacket(trigger, trackerId));
+                try { _ = udpClient.SendAsync(packetBuilder.BuildTriggerAnaloguePacket(trigger, trackerId)); } catch { }
             }
         }
 
@@ -397,8 +397,9 @@ namespace SlimeImuProtocol.SlimeVR
         {
             if (udpClient != null && _isInitialized)
             {
-                _ = udpClient.SendAsync(packetBuilder.BuildGripAnaloguePacket(grip, trackerId));
+                try { _ = udpClient.SendAsync(packetBuilder.BuildGripAnaloguePacket(grip, trackerId)); } catch { }
             }
         }
     }
 }
+
