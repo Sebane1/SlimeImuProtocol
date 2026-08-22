@@ -152,9 +152,9 @@ namespace SlimeImuProtocol.SlimeVR
                     ConfigureUdp();
                 }
 
-                // Connection persistence watchdog: 4 seconds
+                // Connection persistence watchdog: 15 seconds
                 long now = DateTimeOffset.UtcNow.ToUniversalTime().ToUnixTimeMilliseconds();
-                if (_isInitialized && (now - _lastPacketReceivedTime > 4000))
+                if (_isInitialized && (now - _lastPacketReceivedTime > 15000))
                 {
                     Debug.WriteLine($"[UDPHandler] Connection TIMEOUT for {_id}. Re-handshaking...");
                     _isInitialized = false;
@@ -184,20 +184,37 @@ namespace SlimeImuProtocol.SlimeVR
                     {
                         if (!_isInitialized)
                         {
-                            _endpoint = result.RemoteEndPoint.Address.ToString();
+                            string serverIp = result.RemoteEndPoint.Address.ToString();
+                            Endpoint = serverIp; // Update static endpoint for all handlers
                             _isInitialized = true;
-                            Console.WriteLine($"[UDPHandler] Handshake ACCEPTED by SlimeVR Server at {_endpoint}");
-                            Debug.WriteLine($"[UDPHandler] Got Discovery Response for {_id}: {_endpoint}");
-                            OnServerDiscovered?.Invoke(null, _endpoint);
+                            Console.WriteLine($"[UDPHandler] Handshake ACCEPTED by SlimeVR Server at {serverIp}");
+                            Debug.WriteLine($"[UDPHandler] Got Discovery Response for {_id}: {serverIp}");
+                            OnServerDiscovered?.Invoke(null, serverIp);
 
-                            // Send 2nd handshake confirmation
+                            // Reconfigure UDP client to connect to actual server (not broadcast)
+                            try
+                            {
+                                udpClient?.Close();
+                                udpClient?.Dispose();
+                                int localPort = 50000 + new Random().Next(0, 10000);
+                                udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, localPort));
+                                udpClient.EnableBroadcast = false;
+                                udpClient.Connect(serverIp, 6969);
+                                Debug.WriteLine($"[UDPHandler] Reconfigured UDP to server {serverIp} on port {localPort}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"[UDPHandler] Failed to reconfigure UDP: {ex.Message}");
+                            }
+
+                            // Send 2nd handshake confirmation (now unicast to server)
                             try
                             {
                                 await udpClient.SendAsync(packetBuilder.BuildHandshakePacket(boardType, imuType, mcuType, magnetometerStatus, macAddress));
                             }
                             catch { }
 
-                            // Send SensorInfo for all registered sensors to register them in SlimeVR Server state
+                            // Send SensorInfo for all registered sensors
                             foreach (var kvp in _registeredSensors)
                             {
                                 byte sId = kvp.Key;
@@ -263,10 +280,11 @@ namespace SlimeImuProtocol.SlimeVR
                     udpClient?.Dispose();
                 }
                 _endpoint = Endpoint; // Cache the current static endpoint locally
-                udpClient = new UdpClient();
+                int localPort = 50000 + new Random().Next(0, 10000);
+                udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, localPort));
                 udpClient.EnableBroadcast = true;
                 udpClient.Connect(_endpoint, 6969);
-                Debug.WriteLine($"[UDPHandler] Configured UDP for {_id} -> {_endpoint}");
+                Debug.WriteLine($"[UDPHandler] Configured UDP for {_id} (Local Port {localPort}) -> {_endpoint}");
             }
             catch (Exception ex)
             {
@@ -362,6 +380,15 @@ namespace SlimeImuProtocol.SlimeVR
             if (udpClient != null && _isInitialized)
             {
                 try { await udpClient.SendAsync(packetBuilder.BuildFlexDataPacket(flexResistance, trackerId)); } catch { }
+            }
+            return true;
+        }
+
+        public async Task<bool> SetSensorSignalStrength(int signalStrength, byte trackerId = 0)
+        {
+            if (udpClient != null && _isInitialized)
+            {
+                try { await udpClient.SendAsync(packetBuilder.BuildSignalStrengthPacket(signalStrength, trackerId)); } catch { }
             }
             return true;
         }

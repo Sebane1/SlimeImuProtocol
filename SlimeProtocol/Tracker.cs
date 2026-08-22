@@ -34,7 +34,19 @@ namespace SlimeImuProtocol.SlimeProtocol {
         }
         public float BatteryVoltage { get; set; }
         public float? Temperature { get; set; }
-        public int SignalStrength { get; set; }
+        
+        private int _signalStrength;
+        public int SignalStrength {
+            get => _signalStrength;
+            set
+            {
+                _signalStrength = value;
+                if (_ready)
+                {
+                    UDPHandler?.SetSensorSignalStrength(_signalStrength, 0);
+                }
+            }
+        }
 
         public TrackerStatus Status = TrackerStatus.Disconnected;
         private TrackerDevice? _device;

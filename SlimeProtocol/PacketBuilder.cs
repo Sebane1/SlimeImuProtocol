@@ -234,6 +234,18 @@ namespace SlimeImuProtocol.SlimeVR
             return span;
         }
 
+        public byte[] BuildSignalStrengthPacket(int signalStrength, byte trackerId = 0)
+        {
+            var span = new byte[4 + 8 + 1 + 1];
+            var w = new BigEndianWriter(span);
+            w.SetPosition(0);
+            w.WriteInt32(UDPPackets.SIGNAL_STRENGTH); // Header 19
+            w.WriteInt64(NextPacketId()); // Packet counter
+            w.WriteByte(trackerId); // Sensor ID
+            w.WriteByte((byte)(sbyte)signalStrength); // Signal Strength (RSSI)
+            return span;
+        }
+
         public ReadOnlyMemory<byte> BuildControllerButtonPushedPacket(ControllerButton action, byte trackerId)
         {
             var w = new BigEndianWriter(_controllerButtonBuffer);

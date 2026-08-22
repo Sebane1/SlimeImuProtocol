@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -177,6 +177,7 @@ namespace SlimeImuProtocol.SlimeVR
             public static int ROTATION_2 = 16;
             public static int ROTATION_DATA = 17;
             public static int MAGENTOMETER_ACCURACY = 18;
+            public static int SIGNAL_STRENGTH = 19;
 
             public static int CALIBRATION_ACTION = 21;
 
