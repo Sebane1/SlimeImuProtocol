@@ -1,4 +1,5 @@
 using SlimeImuProtocol.SlimeVR;
+using System.Text;
 using static SlimeImuProtocol.SlimeVR.FirmwareConstants;
 
 namespace SlimeImuProtocol.SlimeProtocol {
@@ -33,12 +34,12 @@ namespace SlimeImuProtocol.SlimeProtocol {
             lock (_lock) {
                 if (_udpHandler == null) {
                     string fw = !string.IsNullOrEmpty(FirmwareVersion) ? FirmwareVersion : "1.0.0_ESB";
-                    byte[] mac = Tracker.GenerateUniqueMac(HardwareIdentifier, 0);
+                    byte[] mac = Encoding.GetEncoding("UTF-8").GetBytes(HardwareIdentifier);
                     _udpHandler = new UDPHandler(
                         fw + "_EsbToLan",
                         mac,
                         BoardType,
-                        ImuType.BNO085,
+                        ImuType.UNKNOWN,
                         McuType,
                         MagnetometerStatus,
                         1,

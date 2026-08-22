@@ -4,8 +4,10 @@ using System.Numerics;
 using System.Text;
 using static SlimeImuProtocol.SlimeVR.FirmwareConstants;
 
-namespace SlimeImuProtocol.SlimeProtocol {
-    public class Tracker : IDisposable {
+namespace SlimeImuProtocol.SlimeProtocol
+{
+    public class Tracker : IDisposable
+    {
         public int TrackerNum { get; set; }
         public string Name { get; set; }
         public string DisplayName { get; set; }
@@ -21,7 +23,8 @@ namespace SlimeImuProtocol.SlimeProtocol {
 
         private FunctionSequenceManager _functionSequenceManager;
 
-        public float BatteryLevel {
+        public float BatteryLevel
+        {
             get => _batteryLevel;
             set
             {
@@ -34,9 +37,10 @@ namespace SlimeImuProtocol.SlimeProtocol {
         }
         public float BatteryVoltage { get; set; }
         public float? Temperature { get; set; }
-        
+
         private int _signalStrength;
-        public int SignalStrength {
+        public int SignalStrength
+        {
             get => _signalStrength;
             set
             {
@@ -57,7 +61,7 @@ namespace SlimeImuProtocol.SlimeProtocol {
         private Vector3 _currentAcceleration;
         private CancellationTokenSource _cts = new CancellationTokenSource();
 
-        public UDPHandler? UDPHandler => _udpHandler ?? _device?.GetUDPHandler();
+        public UDPHandler? UDPHandler => _udpHandler;
 
         // These can be set after construction when device data is parsed
         public string FirmwareVersion { get; set; }
@@ -69,7 +73,8 @@ namespace SlimeImuProtocol.SlimeProtocol {
 
         public Tracker(TrackerDevice device, int trackerNum, string name, string displayName, bool hasRotation, bool hasAcceleration,
             bool userEditable, ImuType imuType, bool allowFiltering, bool needsReset,
-            bool needsMounting, bool usesTimeout, MagnetometerStatus magStatus) {
+            bool needsMounting, bool usesTimeout, MagnetometerStatus magStatus)
+        {
             _device = device;
             TrackerNum = trackerNum;
             Name = name;
@@ -84,54 +89,21 @@ namespace SlimeImuProtocol.SlimeProtocol {
             UsesTimeout = usesTimeout;
             MagStatus = magStatus;
             _ready = true;
+            _udpHandler = _device.GetUDPHandler();
             _ = UDPHandler?.RegisterSensor((byte)TrackerNum, ImuType);
         }
 
-        public void TryInitialize() {
-            if (FirmwareVersion != null && HardwareIdentifier != null && _device != null) {
+        public void TryInitialize()
+        {
+            if (FirmwareVersion != null && HardwareIdentifier != null && _device != null)
+            {
                 _udpHandler = _device.GetUDPHandler();
                 _ready = true;
                 _ = _udpHandler.RegisterSensor((byte)TrackerNum, ImuType);
             }
         }
-
-        public static byte[] GenerateUniqueMac(string? hwId, int trackerIndex = 0)
+        public void SetRotation(Quaternion q)
         {
-            if (string.IsNullOrWhiteSpace(hwId)) hwId = "DefaultESB";
-
-            string clean = hwId.Replace(":", "").Replace("-", "");
-            if (clean.Length == 12 && System.Text.RegularExpressions.Regex.IsMatch(clean, "^[0-9a-fA-F]{12}$"))
-            {
-                try
-                {
-                    byte[] mac = new byte[6];
-                    for (int i = 0; i < 6; i++)
-                    {
-                        mac[i] = Convert.ToByte(clean.Substring(i * 2, 2), 16);
-                    }
-                    mac[0] = (byte)((mac[0] & 0xFE) | 0x02); // Set locally administered bit
-                    mac[5] = (byte)((mac[5] + trackerIndex) & 0xFF);
-                    return mac;
-                }
-                catch { }
-            }
-
-            // Generate deterministic 6-byte MAC from text identifier using SHA256
-            using (var hash = System.Security.Cryptography.SHA256.Create())
-            {
-                byte[] bytes = hash.ComputeHash(System.Text.Encoding.UTF8.GetBytes($"{hwId}:{trackerIndex}"));
-                byte[] mac = new byte[6];
-                mac[0] = (byte)((bytes[0] & 0xFE) | 0x02); // Unicast, locally administered MAC
-                mac[1] = bytes[1];
-                mac[2] = bytes[2];
-                mac[3] = bytes[3];
-                mac[4] = bytes[4];
-                mac[5] = bytes[5];
-                return mac;
-            }
-        }
-
-        public void SetRotation(Quaternion q) {
             if (_ready)
             {
                 _currentRotation = q;
@@ -139,7 +111,8 @@ namespace SlimeImuProtocol.SlimeProtocol {
             }
         }
 
-        public void SetAcceleration(Vector3 a) {
+        public void SetAcceleration(Vector3 a)
+        {
             if (_ready)
             {
                 _currentAcceleration = a;
@@ -147,24 +120,28 @@ namespace SlimeImuProtocol.SlimeProtocol {
             }
         }
 
-        public void SetMagVector(Vector3 m) {
+        public void SetMagVector(Vector3 m)
+        {
             if (_ready)
             {
                 _udpHandler?.SetSensorMagnetometer(m, (byte)TrackerNum);
             }
         }
 
-        public async Task DataTick() {
+        public async Task DataTick()
+        {
             // What do?
         }
 
-        public void Dispose() {
-             _ready = false;
-             _cts.Cancel();
+        public void Dispose()
+        {
+            _ready = false;
+            _cts.Cancel();
         }
     }
 
-    public enum TrackerStatus {
+    public enum TrackerStatus
+    {
         OK,
         Disconnected
     }
