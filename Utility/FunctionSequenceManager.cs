@@ -47,7 +47,6 @@ namespace SlimeImuProtocol.Utility
                             {
                                 Thread.Sleep(100);
                             }
-                            Console.WriteLine("Cycled through " + _functionQueue.Keys.Count + " messages this cycle.");
                             _functionQueue.Clear();
                         }
                     }

@@ -1,8 +1,12 @@
-﻿namespace SlimeImuProtocol.SlimeProtocol {
+using SlimeImuProtocol.SlimeVR;
+
+namespace SlimeImuProtocol.SlimeProtocol {
     public class DeviceManager {
         private static DeviceManager _instance = new DeviceManager();
         Dictionary<string, TrackerDevice> _devices = new Dictionary<string, TrackerDevice>();
         private int _nextLocalTrackerId;
+        private UDPHandler? _sharedUDPHandler;
+        private readonly object _lock = new object();
 
         public static DeviceManager Instance {
             get {
@@ -15,7 +19,6 @@
         public DeviceManager() {
             _instance = this;
         }
-
         public void AddDevice(TrackerDevice newDevice) {
             _devices[newDevice.HardwareIdentifier] = newDevice;
         }

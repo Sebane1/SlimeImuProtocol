@@ -1,4 +1,4 @@
-﻿using SlimeImuProtocol.SlimeVR;
+using SlimeImuProtocol.SlimeVR;
 using System;
 using System.Buffers.Binary;
 using System.Numerics;
@@ -9,8 +9,8 @@ namespace SlimeImuProtocol.SlimeVR
     public class PacketBuilder
     {
         private string _identifierString = "Bootleg Tracker";
-        private int _protocolVersion = 19;
-        private long _packetId;
+        private int _protocolVersion = 22;
+        private long _packetId = 0;
 
         // Pre-allocated buffers for reuse
         private readonly byte[] _rotationBuffer = new byte[4 + 8 + 1 + 1 + 16 + 1];
@@ -34,14 +34,15 @@ namespace SlimeImuProtocol.SlimeVR
             _identifierString = fwString;
         }
 
+        public void ResetPacketId()
+        {
+            _packetId = 0;
+        }
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         private long NextPacketId()
         {
-            if (_packetId >= long.MaxValue)
-            {
-                _packetId = 0;
-            }
-            return _packetId++;
+            return System.Threading.Interlocked.Increment(ref _packetId) - 1;
         }
 
         public ReadOnlyMemory<byte> CreateHeartBeat()
@@ -187,7 +188,8 @@ namespace SlimeImuProtocol.SlimeVR
         public byte[] BuildHandshakePacket(BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magStatus, byte[] mac)
         {
             var idBytes = System.Text.Encoding.UTF8.GetBytes(_identifierString);
-            int totalSize = 4 + 8 + 4 * 7 + 1 + idBytes.Length + mac.Length;
+            int macLen = (mac != null && mac.Length >= 6) ? mac.Length : 6;
+            int totalSize = 4 + 8 + 4 * 7 + 1 + idBytes.Length + macLen;
             var span = new byte[totalSize];
 
             var w = new BigEndianWriter(span);
@@ -206,9 +208,12 @@ namespace SlimeImuProtocol.SlimeVR
             idBytes.CopyTo(span.AsSpan(w.Position)); // Identifier String
             w.Skip(idBytes.Length);
 
-            // MAC address
-            mac.CopyTo(span.AsSpan(w.Position)); // MAC Address
-            w.Skip(mac.Length);
+            // MAC address (write 6 zero bytes if mac is null/shorter, which signals mac=null to server)
+            if (mac != null && mac.Length >= 6)
+            {
+                mac.AsSpan(0, 6).CopyTo(span.AsSpan(w.Position));
+            }
+            w.Skip(6);
 
             return span;
         }
@@ -220,8 +225,8 @@ namespace SlimeImuProtocol.SlimeVR
             w.SetPosition(0);
             w.WriteInt32((int)UDPPackets.SENSOR_INFO); // Packet header
             w.WriteInt64(NextPacketId()); // Packet counter
-            w.WriteByte(trackerId); // Tracker Id
-            w.WriteByte(0); // Sensor status
+            w.WriteByte(trackerId); // Tracker Id (sensorId)
+            w.WriteByte(1); // Sensor status: 0=DISCONNECTED, 1=OK, 2=ERROR
             w.WriteByte((byte)imuType);  // IMU type
             w.WriteInt16(1); // Calibration state
             w.WriteByte((byte)pos);  // Tracker Position

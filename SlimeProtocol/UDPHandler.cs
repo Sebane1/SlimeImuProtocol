@@ -11,7 +11,7 @@ namespace SlimeImuProtocol.SlimeVR
     public class UDPHandler : IDisposable
     {
         private static string _endpoint = "255.255.255.255";
-        private static bool _handshakeOngoing = false;
+        private bool _handshakeOngoing = false;
         public static event EventHandler OnForceHandshake;
         public static event EventHandler OnForceDestroy;
         public static event EventHandler<string> OnServerDiscovered;
@@ -20,6 +20,7 @@ namespace SlimeImuProtocol.SlimeVR
         private string _id;
         private byte[] _hardwareAddress;
         private int _supportedSensorCount;
+        private ConcurrentDictionary<byte, ImuType> _registeredSensors = new();
         private PacketBuilder packetBuilder;
         private int slimevrPort = 6969;
         UdpClient udpClient;
@@ -37,13 +38,14 @@ namespace SlimeImuProtocol.SlimeVR
 
         public bool Active { get => _active; set => _active = value; }
         public static string Endpoint { get => _endpoint; set => _endpoint = value; }
-        public static bool HandshakeOngoing { get => _handshakeOngoing; }
+        private int _deviceId = 1;
 
-        public UDPHandler(string firmware, byte[] hardwareAddress, BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magnetometerStatus, int supportedSensorCount)
+        public UDPHandler(string firmware, byte[] hardwareAddress, BoardType boardType, ImuType imuType, McuType mcuType, MagnetometerStatus magnetometerStatus, int supportedSensorCount, int deviceId = 1)
         {
             _id = Guid.NewGuid().ToString();
             _hardwareAddress = hardwareAddress;
             _supportedSensorCount = supportedSensorCount;
+            _deviceId = deviceId;
             packetBuilder = new PacketBuilder(firmware);
             ConfigureUdp();
             
@@ -63,6 +65,7 @@ namespace SlimeImuProtocol.SlimeVR
         private void TriggerHandshake()
         {
             _isInitialized = false;
+            packetBuilder?.ResetPacketId();
         }
 
         private void UDPHandler_OnForceDestroy(object? sender, EventArgs e)
@@ -94,46 +97,42 @@ namespace SlimeImuProtocol.SlimeVR
 
                 if (!_isInitialized)
                 {
-                    // Sequential Handshake Logic (Global Mutex)
-                    while (_handshakeOngoing && !disposed)
-                    {
-                        await Task.Delay(1000);
-                    }
-
-                    if (disposed) break;
-
                     try
                     {
-                        _handshakeOngoing = true;
-                        Debug.WriteLine($"[UDPHandler] Starting Handshake for {_id}...");
-
-                        while (!_isInitialized && _active && !disposed)
+                        if (udpClient == null || _endpoint != Endpoint)
                         {
-                            // Check if endpoint changed during handshake attempt
-                            if (udpClient == null || _endpoint != Endpoint)
-                            {
-                                ConfigureUdp();
-                            }
-
-                            try { await udpClient.SendAsync(packetBuilder.BuildHandshakePacket(boardType, imuType, mcuType, magnetometerStatus, hardwareAddress)); } catch { }
-                            await Task.Delay(1000);
+                            ConfigureUdp();
                         }
+
+                        try { await udpClient.SendAsync(packetBuilder.BuildHandshakePacket(boardType, imuType, mcuType, magnetometerStatus, hardwareAddress)); } catch { }
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"[UDPHandler] Handshake error for {_id}: {ex.Message}");
                     }
-                    finally
-                    {
-                        _handshakeOngoing = false;
-                    }
 
                     if (_isInitialized)
                     {
-                        Debug.WriteLine($"[UDPHandler] Handshake Success for {_id}. Sending sensor info...");
-                        for (int i = 0; i < _supportedSensorCount; i++)
+                        Console.WriteLine($"[UDPHandler] Handshake Accepted for {_id} (MAC {BitConverter.ToString(hardwareAddress)}). Sending 2nd confirmation handshake & sensor info...");
+                        Debug.WriteLine($"[UDPHandler] Handshake Accepted for {_id}. Sending required 2nd confirmation handshake & sensor info...");
+                        
+                        // 2nd Handshake (Unicast confirmation over connected endpoint)
+                        try { await udpClient.SendAsync(packetBuilder.BuildHandshakePacket(boardType, imuType, mcuType, magnetometerStatus, hardwareAddress)); } catch { }
+                        
+                        // Sensor Registration (SensorInfo, Packet 15) - Only send for active registered sensors!
+                        if (_registeredSensors.Count > 0)
                         {
-                            try { await udpClient.SendAsync(packetBuilder.BuildSensorInfoPacket(imuType, TrackerPosition.NONE, TrackerDataType.ROTATION, (byte)i)); } catch { }
+                            foreach (var kvp in _registeredSensors)
+                            {
+                                try { await udpClient.SendAsync(packetBuilder.BuildSensorInfoPacket(kvp.Value, TrackerPosition.NONE, TrackerDataType.ROTATION, kvp.Key)); } catch { }
+                            }
+                        }
+                        else
+                        {
+                            for (int i = 0; i < _supportedSensorCount && i < 3; i++)
+                            {
+                                try { await udpClient.SendAsync(packetBuilder.BuildSensorInfoPacket(imuType, TrackerPosition.NONE, TrackerDataType.ROTATION, (byte)i)); } catch { }
+                            }
                         }
 
                         if (IsDiscoveryOnly)
@@ -149,6 +148,7 @@ namespace SlimeImuProtocol.SlimeVR
                     // Endpoint changed after initialization, re-handshake to new target
                     Debug.WriteLine($"[UDPHandler] Endpoint changed for {_id}. Re-configuring...");
                     _isInitialized = false;
+                    packetBuilder?.ResetPacketId();
                     ConfigureUdp();
                 }
 
@@ -158,6 +158,7 @@ namespace SlimeImuProtocol.SlimeVR
                 {
                     Debug.WriteLine($"[UDPHandler] Connection TIMEOUT for {_id}. Re-handshaking...");
                     _isInitialized = false;
+                    packetBuilder?.ResetPacketId();
                     _lastPacketReceivedTime = now; // Prevent instant re-trigger
                 }
 
@@ -184,10 +185,31 @@ namespace SlimeImuProtocol.SlimeVR
                         if (!_isInitialized)
                         {
                             _endpoint = result.RemoteEndPoint.Address.ToString();
-                            udpClient.Connect(_endpoint, 6969);
                             _isInitialized = true;
+                            Console.WriteLine($"[UDPHandler] Handshake ACCEPTED by SlimeVR Server at {_endpoint}");
                             Debug.WriteLine($"[UDPHandler] Got Discovery Response for {_id}: {_endpoint}");
                             OnServerDiscovered?.Invoke(null, _endpoint);
+
+                            // Send 2nd handshake confirmation
+                            try
+                            {
+                                await udpClient.SendAsync(packetBuilder.BuildHandshakePacket(boardType, imuType, mcuType, magnetometerStatus, macAddress));
+                            }
+                            catch { }
+
+                            // Send SensorInfo for all registered sensors to register them in SlimeVR Server state
+                            foreach (var kvp in _registeredSensors)
+                            {
+                                byte sId = kvp.Key;
+                                ImuType sImu = kvp.Value;
+                                try
+                                {
+                                    byte[] sensorPacket = packetBuilder.BuildSensorInfoPacket(sImu, TrackerPosition.NONE, TrackerDataType.ROTATION, sId);
+                                    await udpClient.SendAsync(sensorPacket);
+                                    Console.WriteLine($"[UDPHandler] Sent SensorInfo on handshake completion for sensor {sId}");
+                                }
+                                catch { }
+                            }
                         }
                         continue;
                     }
@@ -242,6 +264,7 @@ namespace SlimeImuProtocol.SlimeVR
                 }
                 _endpoint = Endpoint; // Cache the current static endpoint locally
                 udpClient = new UdpClient();
+                udpClient.EnableBroadcast = true;
                 udpClient.Connect(_endpoint, 6969);
                 Debug.WriteLine($"[UDPHandler] Configured UDP for {_id} -> {_endpoint}");
             }
@@ -251,8 +274,26 @@ namespace SlimeImuProtocol.SlimeVR
             }
         }
 
+        public async Task RegisterSensor(byte trackerId, ImuType imuType = ImuType.BNO085)
+        {
+            _registeredSensors[trackerId] = imuType;
+            if (udpClient != null && _isInitialized)
+            {
+                try
+                {
+                    await udpClient.SendAsync(packetBuilder.BuildSensorInfoPacket(imuType, TrackerPosition.NONE, TrackerDataType.ROTATION, trackerId));
+                    Console.WriteLine($"[UDPHandler] Registered SensorInfo for sensor {trackerId}");
+                }
+                catch { }
+            }
+        }
+
         public async Task<bool> SetSensorRotation(Quaternion rotation, byte trackerId)
         {
+            if (!_registeredSensors.ContainsKey(trackerId))
+            {
+                await RegisterSensor(trackerId);
+            }
             if (udpClient != null && _isInitialized)
             {
                 try { await udpClient.SendAsync(packetBuilder.BuildRotationPacket(rotation, trackerId)); } catch { }
@@ -357,6 +398,11 @@ namespace SlimeImuProtocol.SlimeVR
                 try { await udpClient.SendAsync(packetBuilder.BuildBatteryLevelPacket(battery, voltage)); } catch { }
             }
             return true;
+        }
+
+        public async Task<bool> SetSensorBattery(byte trackerId, float battery, float voltage)
+        {
+            return await SetSensorBattery(battery, voltage);
         }
 
         public async Task<bool> SetSensorMagnetometer(Vector3 magnetometer, byte trackerId)
