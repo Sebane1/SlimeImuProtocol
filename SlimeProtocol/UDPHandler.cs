@@ -269,16 +269,27 @@ namespace SlimeImuProtocol.SlimeVR
             }
         }
 
-        public async Task<bool> SetSensorRotation(Quaternion rotation, byte trackerId)
+        public bool SetSensorRotation(Quaternion rotation, byte trackerId)
         {
+            if (float.IsNaN(rotation.X) || float.IsNaN(rotation.Y) || float.IsNaN(rotation.Z) || float.IsNaN(rotation.W))
+                return false;
+
             if (!_registeredSensors.ContainsKey(trackerId))
             {
-                await RegisterSensor(trackerId);
+                _ = RegisterSensor(trackerId);
             }
             if (udpClient != null && _isInitialized)
             {
-                try { await udpClient.SendAsync(packetBuilder.BuildRotationPacket(rotation, trackerId)); } catch { }
-                _lastQuaternion = rotation;
+                try
+                {
+                    lock (packetBuilder)
+                    {
+                        var packet = packetBuilder.BuildRotationPacket(rotation, trackerId);
+                        udpClient.Client.Send(packet.Span);
+                    }
+                    _lastQuaternion = rotation;
+                }
+                catch { }
             }
             return true;
         }
@@ -292,13 +303,21 @@ namespace SlimeImuProtocol.SlimeVR
                 && MathF.Abs(a.W - b.W) < epsilon;
         }
 
-        public async Task<bool> SetSensorAcceleration(Vector3 acceleration, byte trackerId)
+        public bool SetSensorAcceleration(Vector3 acceleration, byte trackerId)
         {
             if (udpClient != null && _isInitialized)
             {
-                try { await udpClient.SendAsync(packetBuilder.BuildAccelerationPacket(acceleration, trackerId)); } catch { }
-                _timeSinceLastAccelerationDataPacket.Restart();
-                _lastAccelerationPacket = acceleration;
+                try
+                {
+                    lock (packetBuilder)
+                    {
+                        var packet = packetBuilder.BuildAccelerationPacket(acceleration, trackerId);
+                        udpClient.Client.Send(packet.Span);
+                    }
+                    _timeSinceLastAccelerationDataPacket.Restart();
+                    _lastAccelerationPacket = acceleration;
+                }
+                catch { }
             }
             return true;
         }
@@ -395,11 +414,19 @@ namespace SlimeImuProtocol.SlimeVR
             return await SetSensorBattery(battery, voltage);
         }
 
-        public async Task<bool> SetSensorMagnetometer(Vector3 magnetometer, byte trackerId)
+        public bool SetSensorMagnetometer(Vector3 magnetometer, byte trackerId)
         {
             if (udpClient != null && _isInitialized)
             {
-                try { await udpClient.SendAsync(packetBuilder.BuildMagnetometerPacket(magnetometer, trackerId)); } catch { }
+                try
+                {
+                    lock (packetBuilder)
+                    {
+                        var packet = packetBuilder.BuildMagnetometerPacket(magnetometer, trackerId);
+                        udpClient.Client.Send(packet.Span);
+                    }
+                }
+                catch { }
             }
             return true;
         }
